@@ -1,1 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⛰️ Sube la Montaña - Quiz Interactivo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
 
+    <!-- ===== PANTALLA 1: BIENVENIDA ===== -->
+    <div id="screen-welcome" class="screen active">
+        <div class="welcome-bg"></div>
+        <div class="welcome-content">
+            <span class="title-icon">⛰️</span>
+            <h1 class="game-title">Sube la<br><span>Montaña</span></h1>
+            <p class="subtitle">Responde preguntas y lleva a tu personaje hasta la cima</p>
+            <div class="input-card">
+                <label for="player-name">¿Cómo te llamas?</label>
+                <input type="text" id="player-name" placeholder="Tu nombre aquí..." maxlength="20" autocomplete="off">
+                <button id="btn-welcome-next" class="btn-primary">Siguiente →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== PANTALLA 2: SELECCIÓN DE PERSONAJE ===== -->
+    <div id="screen-character" class="screen">
+        <div class="char-screen-content">
+            <h2>Elige tu <span class="highlight">personaje</span></h2>
+            <p class="char-subtitle">Tu compañero de aventura en la montaña</p>
+            <div class="characters-grid">
+                <div class="character-card" data-character="alpinista" data-emoji="🧗">
+                    <div class="char-icon">🧗</div>
+                    <div class="char-name">Alpinista</div>
+                    <div class="char-desc">Experto escalador</div>
+                </div>
+                <div class="character-card" data-character="zorro" data-emoji="🦊">
+                    <div class="char-icon">🦊</div>
+                    <div class="char-name">Zorro</div>
+                    <div class="char-desc">Ágil y astuto</div>
+                </div>
+                <div class="character-card" data-character="pinguino" data-emoji="🐧">
+                    <div class="char-icon">🐧</div>
+                    <div class="char-name">Pingüino</div>
+                    <div class="char-desc">Frío como el hielo</div>
+                </div>
+                <div class="character-card" data-character="dragon" data-emoji="🐉">
+                    <div class="char-icon">🐉</div>
+                    <div class="char-name">Dragón</div>
+                    <div class="char-desc">Fuego en la cumbre</div>
+                </div>
+                <div class="character-card" data-character="oso" data-emoji="🐻">
+                    <div class="char-icon">🐻</div>
+                    <div class="char-name">Oso</div>
+                    <div class="char-desc">Fuerza bruta</div>
+                </div>
+                <div class="character-card" data-character="aguila" data-emoji="🦅">
+                    <div class="char-icon">🦅</div>
+                    <div class="char-name">Águila</div>
+                    <div class="char-desc">Visión perfecta</div>
+                </div>
+            </div>
+            <button id="btn-choose-character" class="btn-primary" disabled>¡Vamos a escalar! 🏔️</button>
+        </div>
+    </div>
+
+    <!-- ===== PANTALLA 3: JUEGO ===== -->
+    <div id="screen-game" class="screen">
+        <div class="game-layout">
+
+            <!-- Panel izquierdo: Montaña + Ranking -->
+            <div class="mountain-panel">
+                <div class="mountain-wrapper">
+                    <svg id="mountain-svg" viewBox="0 0 400 520" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" style="stop-color:#0a0818"/>
+                                <stop offset="60%" style="stop-color:#1c1a4a"/>
+                                <stop offset="100%" style="stop-color:#2d3561"/>
+                            </linearGradient>
+                            <linearGradient id="mtnGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" style="stop-color:#f0f6ff"/>
+                                <stop offset="22%" style="stop-color:#c5d8ec"/>
+                                <stop offset="55%" style="stop-color:#8a7865"/>
+                                <stop offset="100%" style="stop-color:#4f4035"/>
+                            </linearGradient>
+                            <linearGradient id="snowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ffffff"/>
+                                <stop offset="100%" style="stop-color:#ddf0ff"/>
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        </defs>
+
+                        <!-- Sky -->
+                        <rect width="400" height="520" fill="url(#skyGrad)"/>
+
+                        <!-- Stars -->
+                        <circle cx="30"  cy="20" r="1.5" fill="white" opacity="0.9"/>
+                        <circle cx="85"  cy="12" r="1"   fill="white" opacity="0.7"/>
+                        <circle cx="155" cy="28" r="2"   fill="white" opacity="0.85"/>
+                        <circle cx="260" cy="8"  r="1.5" fill="white" opacity="0.9"/>
+                        <circle cx="315" cy="22" r="1"   fill="white" opacity="0.6"/>
+                        <circle cx="372" cy="38" r="1.5" fill="white" opacity="0.8"/>
+                        <circle cx="55"  cy="52" r="1"   fill="white" opacity="0.5"/>
+                        <circle cx="335" cy="58" r="2"   fill="white" opacity="0.7"/>
+                        <circle cx="200" cy="15" r="1"   fill="white" opacity="0.6"/>
+                        <circle cx="130" cy="45" r="1.5" fill="white" opacity="0.7"/>
+
+                        <!-- Moon -->
+                        <circle cx="340" cy="55" r="22" fill="#fff8c4" opacity="0.92" filter="url(#glow)"/>
+                        <circle cx="351" cy="49" r="18" fill="#1c1a4a" opacity="0.55"/>
+
+                        <!-- Distant background mountains -->
+                        <polygon points="0,400 100,270 200,380 0,380"  fill="#1e1b45" opacity="0.55"/>
+                        <polygon points="200,400 310,240 400,340 400,400" fill="#18163c" opacity="0.6"/>
+
+                        <!-- Main mountain -->
+                        <polygon points="200,42 18,480 382,480" fill="url(#mtnGrad)"/>
+
+                        <!-- Mountain shadow (right side) -->
+                        <polygon points="200,42 200,480 382,480" fill="#3a2f25" opacity="0.28"/>
+
+                        <!-- Snow cap -->
+                        <polygon points="200,42 160,128 240,128" fill="url(#snowGrad)" opacity="0.97"/>
+                        <polygon points="172,100 163,128 215,128" fill="#eef8ff" opacity="0.75"/>
+
+                        <!-- Trail path -->
+                        <path d="M 200 456
+                                 C 200 438 196 418 193 398
+                                 C 189 375 184 355 186 325
+                                 C 188 295 179 268 181 238
+                                 C 183 208 177 178 180 150
+                                 C 183 124 186 100 200 58"
+                              fill="none" stroke="#c4a87a" stroke-width="2.5"
+                              stroke-dasharray="8,5" opacity="0.75"/>
+
+                        <!-- Checkpoint dots (25%, 50%, 75%) -->
+                        <circle cx="186" cy="338" r="6" fill="none" stroke="#FFD700" stroke-width="2.5"/>
+                        <circle cx="186" cy="338" r="2.5" fill="#FFD700"/>
+
+                        <circle cx="181" cy="228" r="6" fill="none" stroke="#FFD700" stroke-width="2.5"/>
+                        <circle cx="181" cy="228" r="2.5" fill="#FFD700"/>
+
+                        <circle cx="183" cy="138" r="6" fill="none" stroke="#FFD700" stroke-width="2.5"/>
+                        <circle cx="183" cy="138" r="2.5" fill="#FFD700"/>
+
+                        <!-- Summit flag -->
+                        <line x1="200" y1="42" x2="200" y2="12" stroke="white" stroke-width="2.5"/>
+                        <polygon points="200,12 226,22 200,32" fill="#FF3333"/>
+
+                        <!-- Trees base left -->
+                        <polygon points="50,480 62,452 74,480"  fill="#1a6b2a"/>
+                        <polygon points="57,468 62,448 67,468"  fill="#22863a"/>
+                        <polygon points="95,480 109,448 123,480" fill="#165922"/>
+                        <polygon points="102,465 109,444 116,465" fill="#1e7a2f"/>
+
+                        <!-- Trees base right -->
+                        <polygon points="278,480 292,448 306,480" fill="#165922"/>
+                        <polygon points="285,465 292,444 299,465" fill="#1e7a2f"/>
+                        <polygon points="326,480 338,452 350,480" fill="#1a6b2a"/>
+                        <polygon points="333,468 338,448 343,468" fill="#22863a"/>
+
+                        <!-- Ground -->
+                        <rect x="0" y="476" width="400" height="44" fill="#22380e" opacity="0.85"/>
+                    </svg>
+
+                    <!-- Characters overlay -->
+                    <div id="players-on-mountain" class="players-overlay"></div>
+                </div>
+
+                <!-- Live leaderboard -->
+                <div class="live-leaderboard">
+                    <h4>🏆 En Vivo</h4>
+                    <div id="leaderboard-list"></div>
+                </div>
+            </div>
+
+            <!-- Panel derecho: Pregunta -->
+            <div class="question-panel">
+                <div class="question-header">
+                    <div class="player-info">
+                        <span id="hdr-char" class="hdr-char"></span>
+                        <span id="hdr-name"></span>
+                    </div>
+                    <div class="q-counter">
+                        Pregunta <span id="q-num">1</span> / <span id="q-total">10</span>
+                    </div>
+                    <div class="score-badge">⭐ <span id="score-display">0</span></div>
+                </div>
+
+                <!-- Timer -->
+                <div class="timer-row">
+                    <div class="timer-track">
+                        <div id="timer-fill" class="timer-fill"></div>
+                    </div>
+                    <span id="timer-num" class="timer-num">15</span>
+                </div>
+
+                <!-- Question -->
+                <div class="question-card">
+                    <div id="q-category" class="q-category">🌍 General</div>
+                    <p id="q-text" class="q-text">Cargando pregunta...</p>
+                </div>
+
+                <!-- Options -->
+                <div id="options-container" class="options-grid"></div>
+
+                <!-- Feedback -->
+                <div id="feedback-box" class="feedback-box hidden">
+                    <span id="feedback-icon"></span>
+                    <span id="feedback-text"></span>
+                </div>
+
+                <!-- Mobile mountain progress -->
+                <div class="mobile-progress">
+                    <span>🏁</span>
+                    <div class="progress-track">
+                        <div id="mobile-fill" class="progress-fill"></div>
+                    </div>
+                    <span>🏔️</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== PANTALLA 4: RESULTADOS ===== -->
+    <div id="screen-results" class="screen">
+        <div class="results-content">
+            <div id="result-emoji" class="result-emoji"></div>
+            <h2 id="result-title">¡Juego Terminado!</h2>
+            <div id="result-card" class="result-card"></div>
+            <div class="final-board">
+                <h3>🏆 Tabla Final</h3>
+                <div id="final-leaderboard"></div>
+            </div>
+            <div class="result-actions">
+                <button id="btn-play-again" class="btn-primary">🔄 Jugar de Nuevo</button>
+                <button id="btn-share" class="btn-secondary">📤 Compartir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Punto de entrada (ES Modules — importa config, questions y Firebase) -->
+    <script type="module" src="js/game.js"></script>
+</body>
+</html>

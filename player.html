@@ -24,7 +24,7 @@
                 <input type="text" id="p-name" placeholder="Tu nombre aquí..." maxlength="20" autocomplete="off">
                 <button id="btn-join-next" class="btn-primary">Siguiente →</button>
             </div>
-            <p id="p-join-error" style="color:var(--accent); font-size:0.85rem; margin-top:0.75rem; font-weight:700; min-height:1.2em;"></p>
+            <p id="p-join-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.75rem; font-weight:700; min-height:1.2em;"></p>
         </div>
     </div>
 
@@ -34,43 +34,94 @@
             <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.35rem;">Elige tu <span class="highlight">personaje</span></h2>
             <p class="char-subtitle">Tu compañero de aventura</p>
             <div class="characters-grid" id="p-char-grid">
-                <div class="character-card" data-emoji="🧗" data-character="alpinista">
-                    <div class="char-icon">🧗</div>
-                    <div class="char-name">Alpinista</div>
-                    <div class="char-desc">Experto escalador</div>
+                <div class="character-card"
+                     data-emoji="🦁"
+                     data-character="leon"
+                     data-color="#FF8C00"
+                     data-grad="linear-gradient(135deg,#FF8C00,#FFD700)"
+                     style="--char-grad:linear-gradient(135deg,#FF8C00,#FFD700);--char-color:#FF8C00;">
+                    <div class="char-icon">🦁</div>
+                    <div class="char-name">León</div>
+                    <div class="char-desc">Rey de la manada</div>
+                    <div class="char-color-bar" style="background:#FF8C00;"></div>
                 </div>
-                <div class="character-card" data-emoji="🦊" data-character="zorro">
+                <div class="character-card"
+                     data-emoji="🐺"
+                     data-character="lobo"
+                     data-color="#9B59B6"
+                     data-grad="linear-gradient(135deg,#9B59B6,#C39BD3)"
+                     style="--char-grad:linear-gradient(135deg,#9B59B6,#C39BD3);--char-color:#9B59B6;">
+                    <div class="char-icon">🐺</div>
+                    <div class="char-name">Lobo</div>
+                    <div class="char-desc">Espíritu del bosque</div>
+                    <div class="char-color-bar" style="background:#9B59B6;"></div>
+                </div>
+                <div class="character-card"
+                     data-emoji="🦊"
+                     data-character="zorro"
+                     data-color="#FF4ECD"
+                     data-grad="linear-gradient(135deg,#FF4ECD,#FF9CE0)"
+                     style="--char-grad:linear-gradient(135deg,#FF4ECD,#FF9CE0);--char-color:#FF4ECD;">
                     <div class="char-icon">🦊</div>
                     <div class="char-name">Zorro</div>
                     <div class="char-desc">Ágil y astuto</div>
+                    <div class="char-color-bar" style="background:#FF4ECD;"></div>
                 </div>
-                <div class="character-card" data-emoji="🐧" data-character="pinguino">
-                    <div class="char-icon">🐧</div>
-                    <div class="char-name">Pingüino</div>
-                    <div class="char-desc">Frío como el hielo</div>
-                </div>
-                <div class="character-card" data-emoji="🐉" data-character="dragon">
+                <div class="character-card"
+                     data-emoji="🐉"
+                     data-character="dragon"
+                     data-color="#00E5FF"
+                     data-grad="linear-gradient(135deg,#00E5FF,#0090FF)"
+                     style="--char-grad:linear-gradient(135deg,#00E5FF,#0090FF);--char-color:#00E5FF;">
                     <div class="char-icon">🐉</div>
                     <div class="char-name">Dragón</div>
                     <div class="char-desc">Fuego en la cumbre</div>
+                    <div class="char-color-bar" style="background:#00E5FF;"></div>
                 </div>
-                <div class="character-card" data-emoji="🐻" data-character="oso">
-                    <div class="char-icon">🐻</div>
-                    <div class="char-name">Oso</div>
-                    <div class="char-desc">Fuerza bruta</div>
+                <div class="character-card"
+                     data-emoji="🐯"
+                     data-character="tigre"
+                     data-color="#FF6B35"
+                     data-grad="linear-gradient(135deg,#FF6B35,#FFD700)"
+                     style="--char-grad:linear-gradient(135deg,#FF6B35,#FFD700);--char-color:#FF6B35;">
+                    <div class="char-icon">🐯</div>
+                    <div class="char-name">Tigre</div>
+                    <div class="char-desc">Velocidad pura</div>
+                    <div class="char-color-bar" style="background:#FF6B35;"></div>
                 </div>
-                <div class="character-card" data-emoji="🦅" data-character="aguila">
+                <div class="character-card"
+                     data-emoji="🦅"
+                     data-character="aguila"
+                     data-color="#00FF94"
+                     data-grad="linear-gradient(135deg,#00FF94,#00C9FF)"
+                     style="--char-grad:linear-gradient(135deg,#00FF94,#00C9FF);--char-color:#00FF94;">
                     <div class="char-icon">🦅</div>
                     <div class="char-name">Águila</div>
                     <div class="char-desc">Visión perfecta</div>
+                    <div class="char-color-bar" style="background:#00FF94;"></div>
                 </div>
             </div>
             <button id="btn-char-play" class="btn-primary" disabled>¡Jugar! 🏔️</button>
-            <p id="p-char-error" style="color:var(--accent); font-size:0.85rem; margin-top:0.6rem; font-weight:700; text-align:center; min-height:1.2em;"></p>
+            <p id="p-char-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.6rem; font-weight:700; text-align:center; min-height:1.2em;"></p>
         </div>
     </div>
 
-    <!-- ===== PANTALLA 3: QUIZ ===== -->
+    <!-- ===== PANTALLA 3: ESPERANDO ===== -->
+    <div id="p-waiting" class="p-screen">
+        <div class="p-waiting-content">
+            <div id="pw-avatar" class="waiting-avatar-circle"></div>
+            <h2 style="font-size:1.8rem; font-weight:900;">¡Listo, <span id="pw-name"></span>!</h2>
+            <p style="color:var(--text-dim);">Esperando que el host inicie el juego...</p>
+            <div class="waiting-dots">
+                <span></span><span></span><span></span>
+            </div>
+            <div style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:.8rem 1.5rem;font-size:.85rem;color:var(--text-dim);">
+                <strong style="color:#fff;">Sala:</strong> <span id="pw-room"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== PANTALLA 4: QUIZ ===== -->
     <div id="p-quiz" class="p-screen">
         <div class="p-quiz-content">
             <!-- Header -->
@@ -116,7 +167,7 @@
         </div>
     </div>
 
-    <!-- ===== PANTALLA 4: TERMINADO ===== -->
+    <!-- ===== PANTALLA 5: TERMINADO ===== -->
     <div id="p-done" class="p-screen">
         <div class="p-done-content">
             <div id="p-result-emoji" style="font-size:5rem; animation: popIn 0.5s ease;"></div>

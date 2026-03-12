@@ -1,12 +1,11 @@
 import { db } from './config.js';
 import { ALL_QUESTIONS } from './questions.js';
-import { ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, set, get, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 // ——— Constantes ———
 const TOTAL_QUESTIONS = 10;
 
 // Posiciones en la montaña (left%, top%) desde base (step 0) hasta cumbre (step 10)
-// Mapean correctamente sobre el SVG viewBox 0 0 400 520
 const MOUNTAIN_POS = [
     { left: 50.0, top: 87.5 }, // 0 correcto  — base
     { left: 49.3, top: 79.8 }, // 1
@@ -23,8 +22,10 @@ const MOUNTAIN_POS = [
 
 // ——— Estado ———
 let roomId = null;
+let prevCorrect = {};   // rastrear conteos anteriores para animación climbing
+let climbingIds = new Set();
 
-// ——— Inicialización ———
+// ——— Utilidades ———
 function generateRoomId() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let id = '';
@@ -34,22 +35,42 @@ function generateRoomId() {
     return id;
 }
 
-function selectRandomIndices(total, count) {
-    const indices = Array.from({ length: total }, (_, i) => i);
-    const shuffled = indices.sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, Math.min(count, total));
+function selectRandom(pool, count) {
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// ——— Inicialización ———
 async function initHost() {
     roomId = generateRoomId();
 
-    // Seleccionar preguntas aleatorias
-    const questionIndices = selectRandomIndices(ALL_QUESTIONS.length, TOTAL_QUESTIONS);
+    // Intentar cargar banco de preguntas de Firebase, sino usar locales
+    let pool = ALL_QUESTIONS;
+    try {
+        const bankSnap = await get(ref(db, 'question-bank'));
+        if (bankSnap.exists()) {
+            const custom = Object.values(bankSnap.val());
+            if (custom.length >= TOTAL_QUESTIONS) pool = custom;
+        }
+    } catch (_) {
+        // usar pool local
+    }
 
-    // Guardar sala en Firebase
+    const selected = selectRandom(pool, TOTAL_QUESTIONS);
+
+    // Guardar sala en Firebase con preguntas completas y started: false
     await set(ref(db, `rooms/${roomId}`), {
-        questions: questionIndices,
-        createdAt: Date.now()
+        questions: selected,
+        createdAt: Date.now(),
+        started: false
     });
 
     // Construir URL del jugador
@@ -89,10 +110,20 @@ async function initHost() {
         renderLeaderboard(players);
     });
 
-    // Botón para pasar a la vista de montaña
-    document.getElementById('btn-show-mountain').addEventListener('click', () => {
-        document.getElementById('host-lobby').classList.remove('active');
-        document.getElementById('host-mountain').classList.add('active');
+    // Botón "Iniciar Juego" → pone started: true en Firebase y transiciona
+    document.getElementById('btn-start-game').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-start-game');
+        btn.disabled = true;
+        btn.textContent = '⏳ Iniciando...';
+        try {
+            await set(ref(db, `rooms/${roomId}/started`), true);
+            document.getElementById('host-lobby').classList.remove('active');
+            document.getElementById('host-mountain').classList.add('active');
+        } catch (err) {
+            console.error('Error al iniciar juego:', err);
+            btn.disabled = false;
+            btn.textContent = '🚀 Iniciar Juego';
+        }
     });
 }
 
@@ -100,16 +131,18 @@ async function initHost() {
 function renderLobbyPlayers(players) {
     const list = document.getElementById('lobby-player-list');
     const count = document.getElementById('lobby-count');
-    const btn = document.getElementById('btn-show-mountain');
+    const btn = document.getElementById('btn-start-game');
 
     count.textContent = players.length;
     btn.disabled = players.length < 1;
 
     list.innerHTML = players.map(p => `
         <div class="lobby-player-item">
-            <span style="font-size:1.3rem;">${p.emoji || '🧗'}</span>
-            <span style="font-weight:700;">${escHtml(p.name || 'Jugador')}</span>
-            ${p.finished ? '<span style="color:var(--success); font-size:0.75rem; margin-left:auto;">✓ Terminó</span>' : ''}
+            <div class="player-avatar-mini" style="background:${escHtml(p.grad || 'rgba(255,255,255,0.1)')};">
+                ${p.emoji || '🧗'}
+            </div>
+            <span>${escHtml(p.name || 'Jugador')}</span>
+            ${p.finished ? '<span style="margin-left:auto;color:#00FF94;font-size:.75rem;">✓ Terminó</span>' : ''}
         </div>
     `).join('');
 }
@@ -118,6 +151,16 @@ function renderLobbyPlayers(players) {
 function renderTokens(players) {
     const container = document.getElementById('host-tokens');
     if (!container) return;
+
+    // Detectar jugadores que subieron de nivel
+    players.forEach(p => {
+        const prev = prevCorrect[p.id] || 0;
+        if ((p.correct || 0) > prev) {
+            prevCorrect[p.id] = p.correct;
+            climbingIds.add(p.id);
+            setTimeout(() => climbingIds.delete(p.id), 800);
+        }
+    });
 
     // Agrupar por nivel (correct count)
     const groups = {};
@@ -136,13 +179,20 @@ function renderTokens(players) {
             const left = pos.left + spread;
             const top = pos.top;
 
+            const isClimbing = climbingIds.has(p.id);
+            const grad = p.grad || 'linear-gradient(135deg,#FF4ECD,#7B2FFF)';
+            const color = p.color || '#FF4ECD';
+
             const token = document.createElement('div');
-            token.className = 'host-token';
+            token.className = 'host-token' + (isClimbing ? ' climbing' : '');
+            token.dataset.pid = p.id;
             token.style.left = left + '%';
             token.style.top = top + '%';
             token.innerHTML = `
-                <span class="host-token-emoji">${p.emoji || '🧗'}</span>
-                <span class="host-token-name">${escHtml(p.name || 'Jugador')}</span>
+                <div class="host-token-circle" style="background:${escHtml(grad)};--tok-color:${escHtml(color)};">
+                    ${p.emoji || '🧗'}
+                </div>
+                <div class="host-token-label">${escHtml(p.name || 'Jugador')}</div>
             `;
             container.appendChild(token);
         });
@@ -160,7 +210,6 @@ function renderLeaderboard(players) {
 
     container.innerHTML = top8.map((p, i) => {
         const rank = rankIcons[i] || `${i + 1}.`;
-        const progress = Math.round(((p.correct || 0) / TOTAL_QUESTIONS) * 100);
         return `
             <div class="host-lb-item">
                 <span style="min-width:24px; font-weight:900; font-size:0.9rem;">${rank}</span>
@@ -170,15 +219,6 @@ function renderLeaderboard(players) {
             </div>
         `;
     }).join('');
-}
-
-// ——— Utilidad ———
-function escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 // ——— Arrancar ———

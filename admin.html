@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚙️ Gestión de Preguntas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ===== PANTALLA DE LOGIN ===== -->
+<div id="admin-login" style="
+    position:fixed; inset:0; z-index:999;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#0d0221,#1a0533,#0d1b6e);
+    padding:1.5rem;">
+    <div style="
+        background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+        border-radius:24px; padding:2.5rem 2rem; width:100%; max-width:380px;
+        backdrop-filter:blur(12px); text-align:center;">
+        <div style="font-size:3.5rem; margin-bottom:.5rem;">⚙️</div>
+        <h2 style="font-size:1.6rem; font-weight:900; margin-bottom:.3rem;">Panel Admin</h2>
+        <p style="color:rgba(255,255,255,.6); font-size:.88rem; margin-bottom:2rem;">Ingresa tus credenciales para continuar</p>
+        <div style="text-align:left; margin-bottom:1rem;">
+            <label style="display:block;font-size:.82rem;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:.4rem;">Usuario</label>
+            <input id="login-user" type="text" placeholder="admin" autocomplete="username"
+                style="width:100%;padding:.85rem 1rem;border-radius:10px;border:1.5px solid rgba(255,255,255,.12);
+                       background:rgba(255,255,255,.07);color:#fff;font-family:'Nunito',sans-serif;
+                       font-size:1rem;font-weight:700;outline:none;">
+        </div>
+        <div style="text-align:left; margin-bottom:1.5rem;">
+            <label style="display:block;font-size:.82rem;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:.4rem;">Contraseña</label>
+            <input id="login-pass" type="password" placeholder="••••••" autocomplete="current-password"
+                style="width:100%;padding:.85rem 1rem;border-radius:10px;border:1.5px solid rgba(255,255,255,.12);
+                       background:rgba(255,255,255,.07);color:#fff;font-family:'Nunito',sans-serif;
+                       font-size:1rem;font-weight:700;outline:none;">
+        </div>
+        <button id="login-btn"
+            style="width:100%;padding:.9rem;border:none;border-radius:12px;
+                   background:linear-gradient(135deg,#FF4ECD,#7B2FFF);color:#fff;
+                   font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;
+                   cursor:pointer;transition:opacity .2s;">
+            Ingresar →
+        </button>
+        <p id="login-error" style="color:#FF4757;font-size:.82rem;font-weight:700;margin-top:.75rem;min-height:1.2em;"></p>
+    </div>
+</div>
+
+<!-- ===== CONTENIDO ADMIN (oculto hasta login) ===== -->
+<div id="admin-content" style="display:none;">
+<div class="admin-layout">
+    <div class="admin-header">
+        <div>
+            <h1 style="font-size:1.8rem;font-weight:900;">⚙️ Gestión de Preguntas</h1>
+            <p style="color:var(--text-dim);font-size:.85rem;">Las preguntas se usarán automáticamente en el juego</p>
+        </div>
+        <a href="index.html" class="btn-secondary" style="text-decoration:none;padding:.6rem 1.2rem;border-radius:10px;font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;gap:.4rem;width:auto;">← Volver al Juego</a>
+    </div>
+
+    <!-- Formulario -->
+    <div class="admin-form-card">
+        <h3 id="form-title">➕ Agregar Pregunta</h3>
+        <input type="hidden" id="edit-id">
+
+        <div class="form-group">
+            <label>Categoría</label>
+            <select id="f-category">
+                <option>🌍 Geografía</option>
+                <option>🔬 Ciencia</option>
+                <option>📜 Historia</option>
+                <option>🎨 Arte y Cultura</option>
+                <option>💻 Tecnología</option>
+                <option>⚽ Deportes</option>
+                <option>🌿 Naturaleza</option>
+                <option>🧠 Lógica</option>
+                <option>🎭 Entretenimiento</option>
+                <option>📚 Literatura</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Pregunta</label>
+            <textarea id="f-question" placeholder="Escribe la pregunta aquí..."></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+            <div class="form-group">
+                <label>Opción A</label>
+                <input type="text" id="f-opt0" placeholder="Opción A">
+            </div>
+            <div class="form-group">
+                <label>Opción B</label>
+                <input type="text" id="f-opt1" placeholder="Opción B">
+            </div>
+            <div class="form-group">
+                <label>Opción C</label>
+                <input type="text" id="f-opt2" placeholder="Opción C">
+            </div>
+            <div class="form-group">
+                <label>Opción D</label>
+                <input type="text" id="f-opt3" placeholder="Opción D">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Respuesta correcta</label>
+            <div class="correct-selector">
+                <button class="correct-opt active" data-val="0">A</button>
+                <button class="correct-opt" data-val="1">B</button>
+                <button class="correct-opt" data-val="2">C</button>
+                <button class="correct-opt" data-val="3">D</button>
+            </div>
+        </div>
+        <div style="display:flex;gap:.75rem;margin-top:1rem;">
+            <button id="btn-save-q" class="btn-primary btn-sm" style="flex:1;">💾 Guardar Pregunta</button>
+            <button id="btn-cancel-edit" class="btn-secondary btn-sm" style="display:none;">✕ Cancelar</button>
+        </div>
+        <p id="form-error" style="color:var(--danger);font-size:.82rem;margin-top:.5rem;font-weight:700;min-height:1.2em;"></p>
+    </div>
+
+    <!-- Lista de preguntas -->
+    <div class="admin-form-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">
+            <h3 style="margin:0;">📋 Banco de preguntas (<span id="q-count">0</span>)</h3>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                <button id="btn-load-defaults" class="btn-secondary btn-sm">📥 Cargar preguntas por defecto</button>
+                <button id="btn-clear-all" class="btn-secondary btn-sm" style="color:var(--danger);border-color:var(--danger);">🗑️ Borrar todas</button>
+            </div>
+        </div>
+        <div id="q-list" class="q-list">
+            <div class="admin-empty">Cargando preguntas...</div>
+        </div>
+    </div>
+</div>
+</div> <!-- /admin-content -->
+
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>

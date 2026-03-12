@@ -1,5 +1,4 @@
 import { db } from './config.js';
-import { ALL_QUESTIONS } from './questions.js';
 import { ref, set, get, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 // ——— Constantes ———
@@ -15,6 +14,8 @@ const state = {
     playerName:    '',
     playerEmoji:   '',
     playerChar:    '',
+    playerColor:   '#FF4ECD',
+    playerGrad:    'linear-gradient(135deg,#FF4ECD,#7B2FFF)',
     questions:     [],
     currentQ:      0,
     score:         0,
@@ -66,8 +67,10 @@ function init() {
         card.addEventListener('click', () => {
             document.querySelectorAll('#p-char-grid .character-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
-            state.playerEmoji = card.dataset.emoji;
-            state.playerChar  = card.dataset.character;
+            state.playerEmoji  = card.dataset.emoji;
+            state.playerChar   = card.dataset.character;
+            state.playerColor  = card.dataset.color  || '#FF4ECD';
+            state.playerGrad   = card.dataset.grad   || 'linear-gradient(135deg,#FF4ECD,#7B2FFF)';
             document.getElementById('btn-char-play').disabled = false;
             document.getElementById('p-char-error').textContent = '';
         });
@@ -106,11 +109,11 @@ function handleCharPlay() {
         return;
     }
     document.getElementById('p-char-error').textContent = '';
-    loadRoomAndStart();
+    loadRoomAndWait();
 }
 
-// ——— CARGAR SALA Y EMPEZAR ———
-async function loadRoomAndStart() {
+// ——— CARGAR SALA Y ESPERAR INICIO ———
+async function loadRoomAndWait() {
     const btn = document.getElementById('btn-char-play');
     btn.disabled = true;
     btn.textContent = 'Cargando...';
@@ -125,19 +128,20 @@ async function loadRoomAndStart() {
         }
 
         const roomData = roomSnap.val();
-        const indices = roomData.questions || [];
 
-        // Mapear índices a preguntas
-        state.questions = indices.map(i => ALL_QUESTIONS[i]).filter(Boolean);
+        // Las preguntas son objetos completos guardados por el host
+        const questions = roomData.questions || [];
 
-        if (state.questions.length === 0) {
+        if (!Array.isArray(questions) || questions.length === 0) {
             document.getElementById('p-char-error').textContent = 'Error al cargar preguntas. Intenta de nuevo.';
             btn.disabled = false;
             btn.textContent = '¡Jugar! 🏔️';
             return;
         }
 
-        // Crear jugador en Firebase
+        state.questions = questions;
+
+        // Crear jugador en Firebase con color y grad
         const playerRef = push(ref(db, `rooms/${state.roomId}/players`));
         state.playerId = playerRef.key;
 
@@ -145,21 +149,40 @@ async function loadRoomAndStart() {
             name:      state.playerName,
             emoji:     state.playerEmoji,
             character: state.playerChar,
+            color:     state.playerColor,
+            grad:      state.playerGrad,
             score:     0,
             correct:   0,
-            currentQ:  0,
             finished:  false,
             joinedAt:  Date.now()
         });
 
-        // Mostrar pantalla quiz
+        // Poblar pantalla de espera
+        const circle = document.getElementById('pw-avatar');
+        circle.style.background = state.playerGrad;
+        circle.style.boxShadow  = `0 0 20px ${state.playerColor}66`;
+        circle.textContent = state.playerEmoji;
+        document.getElementById('pw-name').textContent = state.playerName;
+        document.getElementById('pw-room').textContent = state.roomId;
+
+        // Preparar header del quiz
         document.getElementById('p-char-hdr').textContent  = state.playerEmoji;
         document.getElementById('p-name-hdr').textContent  = state.playerName;
         document.getElementById('p-q-total').textContent   = state.questions.length;
         document.getElementById('p-mountain-emoji').textContent = state.playerEmoji;
 
-        showScreen('p-quiz');
-        renderQuestion();
+        // Mostrar pantalla de espera
+        showScreen('p-waiting');
+
+        // Escuchar `started` en Firebase — cuando sea true, comenzar quiz
+        const startedRef = ref(db, `rooms/${state.roomId}/started`);
+        const unsubStart = onValue(startedRef, (snap) => {
+            if (snap.val() === true) {
+                unsubStart(); // dejar de escuchar
+                showScreen('p-quiz');
+                renderQuestion();
+            }
+        });
 
     } catch (err) {
         console.error('Error al unirse a la sala:', err);
@@ -180,8 +203,8 @@ function renderQuestion() {
     state.answered = false;
 
     // Actualizar header
-    document.getElementById('p-q-num').textContent  = state.currentQ + 1;
-    document.getElementById('p-score').textContent  = state.score;
+    document.getElementById('p-q-num').textContent     = state.currentQ + 1;
+    document.getElementById('p-score').textContent     = state.score;
     document.getElementById('p-category').textContent  = q.category;
     document.getElementById('p-question').textContent  = q.question;
 
@@ -259,7 +282,6 @@ function handleAnswer(idx) {
     const isCorrect = idx === q.correct;
     const buttons = document.querySelectorAll('#p-options .option-btn');
 
-    // Highlight correcto e incorrecto
     buttons.forEach((btn, i) => {
         btn.disabled = true;
         if (i === q.correct) btn.classList.add('correct');
@@ -276,7 +298,6 @@ function handleAnswer(idx) {
         showFeedback('wrong-fb', '❌', `Incorrecto. Era: ${correctText}`);
     }
 
-    // Actualizar score en header
     document.getElementById('p-score').textContent = state.score;
 
     saveProgress();
@@ -323,9 +344,10 @@ async function saveProgress() {
             name:      state.playerName,
             emoji:     state.playerEmoji,
             character: state.playerChar,
+            color:     state.playerColor,
+            grad:      state.playerGrad,
             score:     state.score,
             correct:   state.correctCount,
-            currentQ:  state.currentQ,
             finished:  state.gameOver,
             ts:        Date.now()
         });
@@ -340,7 +362,6 @@ async function endGame() {
     stopTimer();
     await saveProgress();
 
-    // Determinar resultado
     const pct = state.correctCount / state.questions.length;
     let resultEmoji, resultTitle;
     if (pct >= 0.9) {
@@ -387,7 +408,7 @@ function renderFinalBoard(players) {
         const rank = rankIcons[i] || `${i + 1}.`;
         const isMe = p.id === state.playerId;
         return `
-            <div class="final-item" style="${isMe ? 'background:rgba(108,99,255,.15); border-radius:8px; padding:0.35rem 0.5rem;' : ''}">
+            <div class="final-item" style="${isMe ? 'background:rgba(255,78,205,.15); border-radius:8px; padding:0.35rem 0.5rem;' : ''}">
                 <span class="fi-rank">${rank}</span>
                 <span class="fi-emoji">${p.emoji || '🧗'}</span>
                 <span class="fi-name">${escHtml(p.name || 'Jugador')}${isMe ? ' (tú)' : ''}</span>

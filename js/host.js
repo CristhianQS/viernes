@@ -1,225 +1,387 @@
 import { db } from './config.js';
 import { ALL_QUESTIONS } from './questions.js';
-import { ref, set, get, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// ——— Constantes ———
-const TOTAL_QUESTIONS = 10;
-
-// Posiciones en la montaña (left%, top%) desde base (step 0) hasta cumbre (step 10)
-const MOUNTAIN_POS = [
-    { left: 50.0, top: 87.5 }, // 0 correcto  — base
-    { left: 49.3, top: 79.8 }, // 1
-    { left: 48.5, top: 72.1 }, // 2
-    { left: 47.3, top: 64.4 }, // 3
-    { left: 46.5, top: 56.7 }, // 4
-    { left: 46.0, top: 49.0 }, // 5
-    { left: 45.5, top: 41.5 }, // 6
-    { left: 45.2, top: 34.0 }, // 7
-    { left: 45.5, top: 26.5 }, // 8
-    { left: 46.5, top: 19.0 }, // 9
-    { left: 50.0, top: 10.6 }, // 10 correcto — cumbre
+const BOARD_SIZE = 30;
+const TEAMS = [
+    { name: 'Equipo Rojo',     color: '#FF4757', grad: 'linear-gradient(135deg,#FF4757,#FF8C00)', emoji: '🔴' },
+    { name: 'Equipo Azul',     color: '#4FC3F7', grad: 'linear-gradient(135deg,#4FC3F7,#1A6FCF)', emoji: '🔵' },
+    { name: 'Equipo Verde',    color: '#00E676', grad: 'linear-gradient(135deg,#00E676,#00897B)', emoji: '🟢' },
+    { name: 'Equipo Amarillo', color: '#FFD740', grad: 'linear-gradient(135deg,#FFD740,#E65100)', emoji: '🟡' },
 ];
 
-// ——— Estado ———
-let roomId = null;
-let prevCorrect = {};   // rastrear conteos anteriores para animación climbing
-let climbingIds = new Set();
+let roomId   = null;
+let allQ     = [];
+let usedQ    = new Set();
+let roomState = {};
 
-// ——— Utilidades ———
-function generateRoomId() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let id = '';
-    for (let i = 0; i < 6; i++) {
-        id += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return id;
+const esc = s => String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function genId() {
+    const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({length:6}, () => c[~~(Math.random()*c.length)]).join('');
 }
 
-function selectRandom(pool, count) {
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, Math.min(count, shuffled.length));
-}
-
-function escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-// ——— Inicialización ———
+// ——— INIT ———
 async function initHost() {
-    roomId = generateRoomId();
+    roomId = genId();
 
-    // Intentar cargar banco de preguntas de Firebase, sino usar locales
-    let pool = ALL_QUESTIONS;
+    let pool = [...ALL_QUESTIONS];
     try {
-        const bankSnap = await get(ref(db, 'question-bank'));
-        if (bankSnap.exists()) {
-            const custom = Object.values(bankSnap.val());
-            if (custom.length >= TOTAL_QUESTIONS) pool = custom;
+        const snap = await get(ref(db, 'question-bank'));
+        if (snap.exists()) {
+            const custom = Object.values(snap.val());
+            if (custom.length >= 5) pool = custom;
         }
-    } catch (_) {
-        // usar pool local
-    }
+    } catch(_) {}
+    allQ = pool.sort(() => Math.random() - .5);
 
-    const selected = selectRandom(pool, TOTAL_QUESTIONS);
+    const teamsData = {};
+    TEAMS.forEach((t, i) => { teamsData[i] = { ...t, position: 0 }; });
 
-    // Guardar sala en Firebase con preguntas completas y started: false
     await set(ref(db, `rooms/${roomId}`), {
-        questions: selected,
-        createdAt: Date.now(),
-        started: false
+        phase: 'lobby',
+        currentTeamIndex: 0,
+        currentQuestion: null,
+        diceResult: null,
+        turnResult: null,
+        teams: teamsData,
+        started: false,
+        createdAt: Date.now()
     });
 
-    // Construir URL del jugador
-    const loc = window.location;
-    const pathDir = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
-    const playerUrl = loc.origin + pathDir + 'player.html?room=' + roomId;
+    const loc  = window.location;
+    const base = loc.origin + loc.pathname.slice(0, loc.pathname.lastIndexOf('/') + 1);
+    const playerUrl = base + 'player.html?room=' + roomId;
 
-    // Mostrar roomId en lobby
     document.getElementById('room-code-text').textContent = roomId;
-    document.getElementById('side-room-code').textContent = roomId;
-    document.getElementById('join-url').textContent = playerUrl;
+    document.getElementById('join-url').textContent       = playerUrl;
 
-    // Generar QR grande en lobby
     new window.QRCode(document.getElementById('qr-code'), {
-        text: playerUrl,
-        width: 220,
-        height: 220,
-        colorDark: '#1a1a2e',
-        colorLight: '#ffffff'
+        text: playerUrl, width: 200, height: 200,
+        colorDark: '#1a1a2e', colorLight: '#ffffff'
     });
-
-    // Generar QR pequeño en panel lateral
     new window.QRCode(document.getElementById('qr-small'), {
-        text: playerUrl,
-        width: 100,
-        height: 100,
-        colorDark: '#1a1a2e',
-        colorLight: '#ffffff'
+        text: playerUrl, width: 90, height: 90,
+        colorDark: '#1a1a2e', colorLight: '#ffffff'
     });
+    document.getElementById('room-mini').textContent = roomId;
 
-    // Escuchar jugadores en tiempo real
-    onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
-        const data = snapshot.val();
-        const players = data ? Object.entries(data).map(([id, p]) => ({ id, ...p })) : [];
-        renderLobbyPlayers(players);
-        renderTokens(players);
-        renderLeaderboard(players);
-    });
+    onValue(ref(db, `rooms/${roomId}`), snap => {
+        if (!snap.exists()) return;
+        roomState = snap.val();
+        const players = roomState.players
+            ? Object.entries(roomState.players).map(([id,p]) => ({id,...p}))
+            : [];
 
-    // Botón "Iniciar Juego" → pone started: true en Firebase y transiciona
-    document.getElementById('btn-start-game').addEventListener('click', async () => {
-        const btn = document.getElementById('btn-start-game');
-        btn.disabled = true;
-        btn.textContent = '⏳ Iniciando...';
-        try {
-            await set(ref(db, `rooms/${roomId}/started`), true);
-            document.getElementById('host-lobby').classList.remove('active');
-            document.getElementById('host-mountain').classList.add('active');
-        } catch (err) {
-            console.error('Error al iniciar juego:', err);
-            btn.disabled = false;
-            btn.textContent = '🚀 Iniciar Juego';
+        updateLobby(players);
+        if (roomState.phase !== 'lobby') {
+            renderBoard(roomState);
+            updatePanel(roomState, players);
+        }
+        if (roomState.phase === 'finished') {
+            showFinalScreen(roomState);
         }
     });
+
+    document.getElementById('btn-start-game').addEventListener('click', startGame);
 }
 
-// ——— Lobby: lista de jugadores ———
-function renderLobbyPlayers(players) {
-    const list = document.getElementById('lobby-player-list');
-    const count = document.getElementById('lobby-count');
-    const btn = document.getElementById('btn-start-game');
+// ——— LOBBY ———
+function updateLobby(players) {
+    document.getElementById('lobby-count').textContent        = players.length;
+    document.getElementById('btn-start-game').disabled        = players.length < 1;
 
-    count.textContent = players.length;
-    btn.disabled = players.length < 1;
+    const byTeam = {};
+    players.forEach(p => {
+        const ti = p.teamIndex ?? 0;
+        (byTeam[ti] = byTeam[ti] || []).push(p);
+    });
 
-    list.innerHTML = players.map(p => `
-        <div class="lobby-player-item">
-            <div class="player-avatar-mini" style="background:${escHtml(p.grad || 'rgba(255,255,255,0.1)')};">
-                ${p.emoji || '🧗'}
-            </div>
-            <span>${escHtml(p.name || 'Jugador')}</span>
-            ${p.finished ? '<span style="margin-left:auto;color:#00FF94;font-size:.75rem;">✓ Terminó</span>' : ''}
+    document.getElementById('lobby-team-list').innerHTML = TEAMS.map((t, i) => {
+        const tp = byTeam[i] || [];
+        return `
+            <div class="ltg" style="border-color:${t.color}">
+                <div class="ltg-hdr" style="color:${t.color}">${t.emoji} ${esc(t.name)} <span class="ltg-cnt">${tp.length}</span></div>
+                ${tp.map(p => `<div class="ltg-p">👤 ${esc(p.name)}</div>`).join('')}
+            </div>`;
+    }).join('');
+}
+
+async function startGame() {
+    document.getElementById('btn-start-game').disabled = true;
+    await update(ref(db, `rooms/${roomId}`), { phase: 'idle', started: true });
+    document.getElementById('host-lobby').classList.remove('active');
+    document.getElementById('host-game').classList.add('active');
+}
+
+// ——— QUESTION POOL ———
+function getNextQ() {
+    for (let i = 0; i < allQ.length; i++) {
+        if (!usedQ.has(i)) { usedQ.add(i); return allQ[i]; }
+    }
+    usedQ.clear(); usedQ.add(0); return allQ[0];
+}
+
+// ——— GAME ACTIONS (exposed to window for inline buttons) ———
+window._ask = async function() {
+    const q = getNextQ();
+    await update(ref(db, `rooms/${roomId}`), {
+        phase: 'question',
+        currentQuestion: q,
+        diceResult: null,
+        turnResult: null,
+        turnAnswers: null
+    });
+};
+
+window._correct = async function() {
+    const ti     = roomState.currentTeamIndex ?? 0;
+    const dice   = ~~(Math.random() * 6) + 1;
+    const curPos = roomState.teams?.[ti]?.position ?? 0;
+    const newPos = Math.min(curPos + dice, BOARD_SIZE);
+    const won    = newPos >= BOARD_SIZE;
+
+    await update(ref(db, `rooms/${roomId}`), {
+        phase: won ? 'finished' : 'dice',
+        currentQuestion: null,
+        diceResult: dice,
+        turnResult: 'correct',
+        [`teams/${ti}/position`]: newPos
+    });
+};
+
+window._wrong = async function() {
+    await update(ref(db, `rooms/${roomId}`), {
+        phase: 'wrong',
+        currentQuestion: null,
+        diceResult: null,
+        turnResult: 'wrong'
+    });
+};
+
+window._next = async function() {
+    const next = ((roomState.currentTeamIndex ?? 0) + 1) % TEAMS.length;
+    await update(ref(db, `rooms/${roomId}`), {
+        phase: 'idle',
+        currentTeamIndex: next,
+        currentQuestion: null,
+        diceResult: null,
+        turnResult: null,
+        turnAnswers: null
+    });
+};
+
+window._end = async function() {
+    await update(ref(db, `rooms/${roomId}`), { phase: 'finished', currentQuestion: null });
+};
+
+// ——— BOARD RENDERING ———
+function renderBoard(roomData) {
+    const container = document.getElementById('game-board');
+    if (!container) return;
+    const teams = roomData.teams || {};
+
+    const posMap = {};
+    const startTokens = [];
+    Object.entries(teams).forEach(([ti, t]) => {
+        const pos = t.position || 0;
+        if (pos > 0) {
+            (posMap[pos] = posMap[pos] || []).push({ti:+ti, ...t});
+        } else {
+            startTokens.push({ti:+ti, ...t});
+        }
+    });
+
+    // Render start zone tokens
+    const startEl = document.getElementById('start-tokens');
+    if (startEl) {
+        startEl.innerHTML = startTokens.map(t =>
+            `<div class="b-token" style="background:${esc(t.grad)};box-shadow:0 0 8px ${esc(t.color)}80;" title="${esc(t.name)}">${t.emoji}</div>`
+        ).join('');
+    }
+
+    // Snake board rows
+    const rows = [
+        Array.from({length:10}, (_,i) => 21+i),   // top:  21→30
+        Array.from({length:10}, (_,i) => 20-i),   // mid:  20→11
+        Array.from({length:10}, (_,i) => 1+i),    // bot:   1→10
+    ];
+
+    const activeTi  = roomData.currentTeamIndex ?? 0;
+    const activePos = teams[activeTi]?.position ?? 0;
+
+    container.innerHTML = rows.map(row => `
+        <div class="board-row">
+        ${row.map(sq => {
+            const tokens  = posMap[sq] || [];
+            const isGoal  = sq === BOARD_SIZE;
+            const isMile  = sq % 5 === 0 && !isGoal;
+            const isHigh  = sq === activePos && activePos > 0;
+            let cls = 'board-sq';
+            if (isGoal) cls += ' sq-goal';
+            else if (isMile) cls += ' sq-mile';
+            if (isHigh) cls += ' sq-hl';
+
+            return `
+            <div class="${cls}">
+                <div class="sq-num">${isGoal ? '🏆' : sq}</div>
+                <div class="sq-tokens">
+                ${tokens.map(t =>
+                    `<div class="b-token" style="background:${esc(t.grad)};box-shadow:0 0 6px ${esc(t.color)}90;" title="${esc(t.name)}">${t.emoji}</div>`
+                ).join('')}
+                </div>
+            </div>`;
+        }).join('')}
         </div>
     `).join('');
 }
 
-// ——— Tokens en la montaña ———
-function renderTokens(players) {
-    const container = document.getElementById('host-tokens');
-    if (!container) return;
+// ——— SIDE PANEL ———
+function updatePanel(roomData, players) {
+    const ti    = roomData.currentTeamIndex ?? 0;
+    const team  = TEAMS[ti];
+    const phase = roomData.phase;
 
-    // Detectar jugadores que subieron de nivel
-    players.forEach(p => {
-        const prev = prevCorrect[p.id] || 0;
-        if ((p.correct || 0) > prev) {
-            prevCorrect[p.id] = p.correct;
-            climbingIds.add(p.id);
-            setTimeout(() => climbingIds.delete(p.id), 800);
-        }
-    });
+    // Current team display
+    const ctEl = document.getElementById('current-team-display');
+    if (ctEl) {
+        const pos = roomData.teams?.[ti]?.position ?? 0;
+        ctEl.innerHTML = `
+            <span style="font-size:2.2rem;">${team.emoji}</span>
+            <div>
+                <div style="font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">Turno actual</div>
+                <div style="font-weight:900;font-size:1.05rem;color:${team.color};">${esc(team.name)}</div>
+                <div style="font-size:.72rem;color:var(--text-dim);">Casilla ${pos}</div>
+            </div>`;
+    }
 
-    // Agrupar por nivel (correct count)
-    const groups = {};
-    players.forEach(p => {
-        const lvl = Math.min(p.correct || 0, TOTAL_QUESTIONS);
-        if (!groups[lvl]) groups[lvl] = [];
-        groups[lvl].push(p);
-    });
+    // Controls
+    const ctrl = document.getElementById('panel-controls');
+    if (!ctrl) return;
 
-    container.innerHTML = '';
-    Object.entries(groups).forEach(([lvl, group]) => {
-        const pos = MOUNTAIN_POS[parseInt(lvl, 10)] || MOUNTAIN_POS[0];
-        group.forEach((p, idx) => {
-            const size = group.length;
-            const spread = (idx - (size - 1) / 2) * 5;
-            const left = pos.left + spread;
-            const top = pos.top;
+    if (phase === 'idle') {
+        ctrl.innerHTML = `
+            <button onclick="window._ask()" class="btn-primary" style="width:100%;font-size:1rem;padding:.8rem;">
+                🎯 Mostrar Pregunta
+            </button>
+            <button onclick="window._end()" class="btn-secondary btn-sm" style="margin-top:.5rem;width:100%;">
+                🏁 Terminar Juego
+            </button>`;
 
-            const isClimbing = climbingIds.has(p.id);
-            const grad = p.grad || 'linear-gradient(135deg,#FF4ECD,#7B2FFF)';
-            const color = p.color || '#FF4ECD';
+    } else if (phase === 'question') {
+        const q = roomData.currentQuestion;
+        const letters = ['A','B','C','D'];
 
-            const token = document.createElement('div');
-            token.className = 'host-token' + (isClimbing ? ' climbing' : '');
-            token.dataset.pid = p.id;
-            token.style.left = left + '%';
-            token.style.top = top + '%';
-            token.innerHTML = `
-                <div class="host-token-circle" style="background:${escHtml(grad)};--tok-color:${escHtml(color)};">
-                    ${p.emoji || '🧗'}
+        // Player answers from current team
+        const answers = roomData.turnAnswers ? Object.entries(roomData.turnAnswers) : [];
+        const teamAnswers = answers
+            .filter(([pid]) => {
+                const p = players.find(pl => pl.id === pid);
+                return p && (p.teamIndex ?? 0) === ti;
+            })
+            .map(([pid, a]) => {
+                const p = players.find(pl => pl.id === pid);
+                return { name: p?.name || '?', ...a };
+            });
+
+        const ansHtml = teamAnswers.map(a => `
+            <div class="ans-row">
+                👤 ${esc(a.name)}:
+                <strong>${letters[a.answerIdx] ?? '?'}</strong>
+                ${a.answerIdx === q?.correct
+                    ? '<span style="color:var(--success)">✓</span>'
+                    : '<span style="color:var(--danger)">✗</span>'}
+            </div>`).join('');
+
+        ctrl.innerHTML = `
+            ${q ? `<div class="host-q-card">
+                <div class="hq-cat">${esc(q.category || '')}</div>
+                <div class="hq-text">${esc(q.question)}</div>
+                <div class="hq-opts">
+                ${(q.options||[]).map((o,i) => `
+                    <div class="hq-opt${i===q.correct?' hqo-ok':''}">
+                        <span class="opt-letter">${letters[i]}</span>${esc(o)}
+                    </div>`).join('')}
                 </div>
-                <div class="host-token-label">${escHtml(p.name || 'Jugador')}</div>
-            `;
-            container.appendChild(token);
-        });
-    });
-}
+                ${ansHtml ? `<div class="ans-list"><div class="ans-title">Respuestas recibidas:</div>${ansHtml}</div>` : ''}
+            </div>` : ''}
+            <div style="display:flex;gap:.5rem;margin-top:.5rem;">
+                <button onclick="window._correct()" class="btn-primary" style="flex:1;background:linear-gradient(135deg,#00E676,#00897B);color:#000;font-weight:900;">✓ Correcto</button>
+                <button onclick="window._wrong()" class="btn-secondary btn-sm" style="flex:1;color:var(--danger);border-color:var(--danger);">✗ Incorrecto</button>
+            </div>`;
 
-// ——— Leaderboard lateral ———
-function renderLeaderboard(players) {
-    const container = document.getElementById('host-leaderboard');
-    if (!container) return;
-
-    const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
-    const top8 = sorted.slice(0, 8);
-    const rankIcons = ['🥇', '🥈', '🥉'];
-
-    container.innerHTML = top8.map((p, i) => {
-        const rank = rankIcons[i] || `${i + 1}.`;
-        return `
-            <div class="host-lb-item">
-                <span style="min-width:24px; font-weight:900; font-size:0.9rem;">${rank}</span>
-                <span style="font-size:1rem;">${p.emoji || '🧗'}</span>
-                <span style="flex:1; font-weight:700; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(p.name || 'Jugador')}</span>
-                <span style="font-weight:900; font-size:0.85rem; color:var(--gold);">${p.score || 0}</span>
+    } else if (phase === 'dice') {
+        const pos  = roomData.teams?.[ti]?.position ?? 0;
+        const dice = roomData.diceResult;
+        const faces = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+        ctrl.innerHTML = `
+            <div class="dice-result">
+                <div class="dice-face">${faces[dice] || dice}</div>
+                <div class="dice-text">
+                    <strong>${dice}</strong> — ${esc(team.emoji)} ${esc(team.name)}<br>
+                    <span style="font-size:.85rem;color:var(--text-dim);">avanza a casilla <strong>${pos}</strong></span>
+                </div>
             </div>
-        `;
-    }).join('');
+            <button onclick="window._next()" class="btn-primary" style="width:100%;margin-top:.75rem;">▶ Siguiente Turno</button>`;
+
+    } else if (phase === 'wrong') {
+        ctrl.innerHTML = `
+            <div class="wrong-result">
+                <div style="font-size:3rem;">❌</div>
+                <div style="font-weight:700;color:var(--danger);">${esc(team.emoji)} ${esc(team.name)}<br>no avanza esta vez</div>
+            </div>
+            <button onclick="window._next()" class="btn-primary" style="width:100%;margin-top:.75rem;">▶ Siguiente Turno</button>`;
+    }
+
+    renderStandings(roomData.teams);
 }
 
-// ——— Arrancar ———
+function renderStandings(teams) {
+    const el = document.getElementById('panel-standings');
+    if (!el || !teams) return;
+    const sorted = Object.entries(teams)
+        .map(([i,t]) => ({i:+i,...t}))
+        .sort((a,b) => (b.position||0) - (a.position||0));
+
+    el.innerHTML = sorted.map((t, r) => `
+        <div class="standing-row">
+            <span class="st-rank">${['🥇','🥈','🥉','4.'][r] || `${r+1}.`}</span>
+            <span>${t.emoji}</span>
+            <span style="flex:1;font-weight:700;font-size:.82rem;color:${t.color};">${esc(t.name)}</span>
+            <span style="font-weight:900;font-size:.82rem;">⬡ ${t.position||0}</span>
+        </div>`).join('');
+}
+
+// ——— FINAL SCREEN ———
+function showFinalScreen(roomData) {
+    const game = document.getElementById('host-game');
+    if (!game || game.querySelector('.final-screen')) return;
+
+    const teams  = roomData.teams || {};
+    const sorted = Object.values(teams).sort((a,b) => (b.position||0) - (a.position||0));
+    const winner = sorted[0];
+    const icons  = ['🥇','🥈','🥉','4️⃣'];
+
+    game.innerHTML = `
+        <div class="final-screen">
+            <div style="font-size:5rem;margin-bottom:.75rem;">🏆</div>
+            <h1 style="font-size:2.8rem;font-weight:900;margin-bottom:.5rem;">¡Fin del Juego!</h1>
+            <div style="font-size:1.4rem;font-weight:800;color:${winner?.color};margin-bottom:2rem;">
+                ${winner?.emoji} ${esc(winner?.name)} — Casilla ${winner?.position}
+            </div>
+            <div class="final-table">
+                ${sorted.map((t,i) => `
+                    <div class="final-row">
+                        <span style="font-size:1.5rem;min-width:2rem;">${icons[i]||`${i+1}.`}</span>
+                        <span style="font-size:1.3rem;">${t.emoji}</span>
+                        <span style="flex:1;font-weight:800;font-size:1.1rem;color:${t.color};">${esc(t.name)}</span>
+                        <span style="font-weight:900;font-size:1rem;">Casilla ${t.position||0} / ${BOARD_SIZE}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+}
+
 initHost();

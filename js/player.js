@@ -1,422 +1,343 @@
 import { db } from './config.js';
-import { ref, set, get, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, set, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// ——— Constantes ———
-const TOTAL_QUESTIONS = 10;
-const TIMER_SECONDS   = 15;
-const POINTS_CORRECT  = 100;
-const BONUS_MAX       = 50;
+const BOARD_SIZE = 30;
+const TEAMS = [
+    { name: 'Equipo Rojo',     color: '#FF4757', grad: 'linear-gradient(135deg,#FF4757,#FF8C00)', emoji: '🔴' },
+    { name: 'Equipo Azul',     color: '#4FC3F7', grad: 'linear-gradient(135deg,#4FC3F7,#1A6FCF)', emoji: '🔵' },
+    { name: 'Equipo Verde',    color: '#00E676', grad: 'linear-gradient(135deg,#00E676,#00897B)', emoji: '🟢' },
+    { name: 'Equipo Amarillo', color: '#FFD740', grad: 'linear-gradient(135deg,#FFD740,#E65100)', emoji: '🟡' },
+];
 
-// ——— Estado del juego ———
 const state = {
-    roomId:        null,
-    playerId:      null,
-    playerName:    '',
-    playerEmoji:   '',
-    playerChar:    '',
-    playerColor:   '#FF4ECD',
-    playerGrad:    'linear-gradient(135deg,#FF4ECD,#7B2FFF)',
-    questions:     [],
-    currentQ:      0,
-    score:         0,
-    correctCount:  0,
-    answered:      false,
-    timeLeft:      TIMER_SECONDS,
-    timerInterval: null,
-    gameOver:      false
+    roomId:    null,
+    playerId:  null,
+    name:      '',
+    teamIndex: null,
+    answered:  false,
 };
 
-// ——— Utilidades DOM ———
+const esc = s => String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 function showScreen(id) {
     document.querySelectorAll('.p-screen').forEach(s => s.classList.remove('active'));
     const el = document.getElementById(id);
     if (el) el.classList.add('active');
 }
 
-function escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+function showErr(id, msg) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = msg;
 }
 
 // ——— INIT ———
 function init() {
     const params = new URLSearchParams(window.location.search);
-    const room = params.get('room');
+    const room   = params.get('room');
 
     if (!room) {
-        showJoinError('Sala no encontrada. Escanea el QR nuevamente.');
+        showErr('join-error', 'Sala no encontrada. Escanea el QR nuevamente.');
         showScreen('p-join');
         return;
     }
 
     state.roomId = room.toUpperCase();
-    document.getElementById('p-room-display').textContent = state.roomId;
+    document.getElementById('p-room-badge').textContent = '🎲 Sala: ' + state.roomId;
     showScreen('p-join');
 
-    // Botón siguiente en join
-    document.getElementById('btn-join-next').addEventListener('click', handleJoinNext);
+    document.getElementById('btn-join-next').addEventListener('click', handleJoin);
     document.getElementById('p-name').addEventListener('keydown', e => {
-        if (e.key === 'Enter') handleJoinNext();
-    });
-
-    // Selección de personaje
-    document.querySelectorAll('#p-char-grid .character-card').forEach(card => {
-        card.addEventListener('click', () => {
-            document.querySelectorAll('#p-char-grid .character-card').forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            state.playerEmoji  = card.dataset.emoji;
-            state.playerChar   = card.dataset.character;
-            state.playerColor  = card.dataset.color  || '#FF4ECD';
-            state.playerGrad   = card.dataset.grad   || 'linear-gradient(135deg,#FF4ECD,#7B2FFF)';
-            document.getElementById('btn-char-play').disabled = false;
-            document.getElementById('p-char-error').textContent = '';
-        });
-    });
-
-    document.getElementById('btn-char-play').addEventListener('click', handleCharPlay);
-
-    document.getElementById('btn-play-again').addEventListener('click', () => {
-        window.location.reload();
+        if (e.key === 'Enter') handleJoin();
     });
 }
 
 // ——— JOIN ———
-function handleJoinNext() {
-    const nameInput = document.getElementById('p-name');
-    const name = nameInput.value.trim();
+function handleJoin() {
+    const nameEl = document.getElementById('p-name');
+    const name   = nameEl.value.trim();
     if (!name) {
-        showJoinError('Por favor escribe tu nombre.');
-        nameInput.focus();
+        showErr('join-error', 'Por favor escribe tu nombre.');
+        nameEl.focus();
         return;
     }
-    state.playerName = name;
-    document.getElementById('p-join-error').textContent = '';
-    showScreen('p-char');
+    state.name = name;
+    showErr('join-error', '');
+    buildTeamScreen();
+    showScreen('p-team');
 }
 
-function showJoinError(msg) {
-    const el = document.getElementById('p-join-error');
-    if (el) el.textContent = msg;
+// ——— TEAM SELECTION ———
+function buildTeamScreen() {
+    const grid = document.getElementById('team-grid');
+    grid.innerHTML = TEAMS.map((t, i) => `
+        <div class="team-card" data-ti="${i}" style="--tc:${t.color};--tg:${t.grad};">
+            <div class="tc-emoji">${t.emoji}</div>
+            <div class="tc-name" style="color:${t.color};">${esc(t.name)}</div>
+        </div>`).join('');
+
+    grid.querySelectorAll('.team-card').forEach(card => {
+        card.addEventListener('click', () => {
+            grid.querySelectorAll('.team-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            state.teamIndex = parseInt(card.dataset.ti, 10);
+            document.getElementById('btn-team-join').disabled = false;
+            showErr('team-error', '');
+        });
+    });
+
+    document.getElementById('btn-team-join').addEventListener('click', handleTeamJoin);
 }
 
-// ——— CHARACTER ———
-function handleCharPlay() {
-    if (!state.playerEmoji) {
-        document.getElementById('p-char-error').textContent = 'Elige un personaje primero.';
+async function handleTeamJoin() {
+    if (state.teamIndex === null) {
+        showErr('team-error', 'Elige un equipo primero.');
         return;
     }
-    document.getElementById('p-char-error').textContent = '';
-    loadRoomAndWait();
-}
-
-// ——— CARGAR SALA Y ESPERAR INICIO ———
-async function loadRoomAndWait() {
-    const btn = document.getElementById('btn-char-play');
+    const btn = document.getElementById('btn-team-join');
     btn.disabled = true;
-    btn.textContent = 'Cargando...';
+    btn.textContent = 'Uniéndose...';
 
     try {
-        const roomSnap = await get(ref(db, `rooms/${state.roomId}`));
-        if (!roomSnap.exists()) {
-            document.getElementById('p-char-error').textContent = 'Sala no encontrada. Verifica el código.';
+        // Verify room exists
+        const snap = await get(ref(db, `rooms/${state.roomId}`));
+        if (!snap.exists()) {
+            showErr('team-error', 'Sala no encontrada.');
             btn.disabled = false;
-            btn.textContent = '¡Jugar! 🏔️';
+            btn.textContent = '¡Unirse al Equipo!';
             return;
         }
 
-        const roomData = roomSnap.val();
-
-        // Las preguntas son objetos completos guardados por el host
-        const questions = roomData.questions || [];
-
-        if (!Array.isArray(questions) || questions.length === 0) {
-            document.getElementById('p-char-error').textContent = 'Error al cargar preguntas. Intenta de nuevo.';
-            btn.disabled = false;
-            btn.textContent = '¡Jugar! 🏔️';
-            return;
-        }
-
-        state.questions = questions;
-
-        // Crear jugador en Firebase con color y grad
+        // Register player
         const playerRef = push(ref(db, `rooms/${state.roomId}/players`));
-        state.playerId = playerRef.key;
+        state.playerId  = playerRef.key;
 
         await set(playerRef, {
-            name:      state.playerName,
-            emoji:     state.playerEmoji,
-            character: state.playerChar,
-            color:     state.playerColor,
-            grad:      state.playerGrad,
-            score:     0,
-            correct:   0,
-            finished:  false,
+            name:      state.name,
+            teamIndex: state.teamIndex,
             joinedAt:  Date.now()
         });
 
-        // Poblar pantalla de espera
-        const circle = document.getElementById('pw-avatar');
-        circle.style.background = state.playerGrad;
-        circle.style.boxShadow  = `0 0 20px ${state.playerColor}66`;
-        circle.textContent = state.playerEmoji;
-        document.getElementById('pw-name').textContent = state.playerName;
-        document.getElementById('pw-room').textContent = state.roomId;
-
-        // Preparar header del quiz
-        document.getElementById('p-char-hdr').textContent  = state.playerEmoji;
-        document.getElementById('p-name-hdr').textContent  = state.playerName;
-        document.getElementById('p-q-total').textContent   = state.questions.length;
-        document.getElementById('p-mountain-emoji').textContent = state.playerEmoji;
-
-        // Mostrar pantalla de espera
-        showScreen('p-waiting');
-
-        // Escuchar `started` en Firebase — cuando sea true, comenzar quiz
-        const startedRef = ref(db, `rooms/${state.roomId}/started`);
-        const unsubStart = onValue(startedRef, (snap) => {
-            if (snap.val() === true) {
-                unsubStart(); // dejar de escuchar
-                showScreen('p-quiz');
-                renderQuestion();
-            }
-        });
+        setupWaitingScreen();
+        showScreen('p-wait');
+        listenToRoom();
 
     } catch (err) {
-        console.error('Error al unirse a la sala:', err);
-        document.getElementById('p-char-error').textContent = 'Error de conexión. Intenta de nuevo.';
+        showErr('team-error', 'Error de conexión: ' + err.message);
         btn.disabled = false;
-        btn.textContent = '¡Jugar! 🏔️';
+        btn.textContent = '¡Unirse al Equipo!';
     }
 }
 
-// ——— RENDERIZAR PREGUNTA ———
-function renderQuestion() {
-    if (state.currentQ >= state.questions.length) {
-        endGame();
-        return;
+// ——— WAITING / WATCHING SCREEN ———
+function setupWaitingScreen() {
+    const team = TEAMS[state.teamIndex];
+    const el   = document.getElementById('my-team-display');
+    if (el) {
+        el.innerHTML = `
+            <div class="my-team-badge" style="background:${team.grad};border-color:${team.color};">
+                ${team.emoji} ${esc(team.name)}
+            </div>
+            <div style="font-size:.85rem;color:var(--text-dim);">👤 ${esc(state.name)}</div>`;
     }
+}
 
-    const q = state.questions[state.currentQ];
+// ——— LISTEN TO ROOM ———
+function listenToRoom() {
+    onValue(ref(db, `rooms/${state.roomId}`), snap => {
+        if (!snap.exists()) return;
+        const room  = snap.val();
+        const phase = room.phase;
+        const cti   = room.currentTeamIndex ?? 0;
+        const myTurn = state.teamIndex === cti;
+
+        if (phase === 'lobby') {
+            showScreen('p-wait');
+            updateWatchScreen(room, 'Esperando que el host inicie el juego...');
+            return;
+        }
+
+        if (phase === 'finished') {
+            showFinalScreen(room);
+            return;
+        }
+
+        if (phase === 'idle') {
+            showScreen('p-wait');
+            const team = TEAMS[cti];
+            updateWatchScreen(room, myTurn
+                ? `✨ ¡Es el turno de tu equipo! Espera la pregunta...`
+                : `Turno de ${team.emoji} ${team.name}`);
+            return;
+        }
+
+        if (phase === 'question') {
+            if (myTurn && room.currentQuestion) {
+                showScreen('p-question');
+                renderQuestion(room.currentQuestion);
+            } else {
+                showScreen('p-wait');
+                const team = TEAMS[cti];
+                updateWatchScreen(room, `${team.emoji} ${team.name} está respondiendo...`);
+            }
+            return;
+        }
+
+        if (phase === 'dice') {
+            showScreen('p-wait');
+            const team  = TEAMS[cti];
+            const faces = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+            const dice  = room.diceResult || 0;
+            const pos   = room.teams?.[cti]?.position ?? 0;
+            updateWatchScreen(room,
+                myTurn
+                    ? `🎲 Tu equipo sacó ${faces[dice]} ${dice} — ¡Casilla ${pos}!`
+                    : `🎲 ${team.emoji} ${team.name} sacó ${faces[dice]} ${dice} — Casilla ${pos}`
+            );
+            return;
+        }
+
+        if (phase === 'wrong') {
+            showScreen('p-wait');
+            const team = TEAMS[cti];
+            updateWatchScreen(room,
+                myTurn
+                    ? `❌ Esta vez no avanzamos. ¡Suerte en el próximo turno!`
+                    : `❌ ${team.emoji} ${team.name} no avanzó`
+            );
+            return;
+        }
+    });
+}
+
+function updateWatchScreen(room, statusMsg) {
+    const statusEl = document.getElementById('watch-status');
+    if (statusEl) statusEl.textContent = statusMsg;
+
+    renderMiniBoard(room);
+}
+
+// ——— MINI BOARD ———
+function renderMiniBoard(room) {
+    const container = document.getElementById('mini-board');
+    if (!container) return;
+    const teams = room.teams || {};
+
+    const posMap = {};
+    Object.entries(teams).forEach(([ti, t]) => {
+        const pos = t.position || 0;
+        (posMap[pos] = posMap[pos] || []).push({ti:+ti,...t});
+    });
+
+    const standings = Object.entries(teams)
+        .map(([i,t]) => ({i:+i,...t}))
+        .sort((a,b) => (b.position||0) - (a.position||0));
+
+    container.innerHTML = `
+        <div class="mini-standings">
+            ${standings.map((t, r) => {
+                const isMe = t.i === state.teamIndex;
+                return `
+                <div class="mini-st-row${isMe ? ' mini-me' : ''}" style="border-color:${isMe ? t.color : 'transparent'}">
+                    <span>${['🥇','🥈','🥉','4.'][r] || `${r+1}.`}</span>
+                    <span>${t.emoji}</span>
+                    <span style="flex:1;color:${t.color};font-weight:${isMe?900:700};">${esc(t.name)}${isMe ? ' (tú)' : ''}</span>
+                    <span>⬡ ${t.position||0}</span>
+                </div>`;
+            }).join('')}
+        </div>`;
+}
+
+// ——— QUESTION SCREEN ———
+function renderQuestion(q) {
     state.answered = false;
 
-    // Actualizar header
-    document.getElementById('p-q-num').textContent     = state.currentQ + 1;
-    document.getElementById('p-score').textContent     = state.score;
-    document.getElementById('p-category').textContent  = q.category;
-    document.getElementById('p-question').textContent  = q.question;
+    document.getElementById('p-q-category').textContent = q.category || '';
+    document.getElementById('p-q-text').textContent     = q.question || '';
 
-    // Limpiar feedback
     const feedback = document.getElementById('p-feedback');
     feedback.className = 'feedback-box hidden';
     feedback.innerHTML = '';
 
-    // Actualizar barra de progreso de montaña
-    const pct = (state.correctCount / state.questions.length) * 100;
-    document.getElementById('p-mountain-bar').style.width = pct + '%';
-
-    // Renderizar opciones
-    const optContainer = document.getElementById('p-options');
-    const letters = ['A', 'B', 'C', 'D'];
-    optContainer.innerHTML = q.options.map((opt, i) => `
+    const letters = ['A','B','C','D'];
+    const opts    = document.getElementById('p-options');
+    opts.innerHTML = (q.options || []).map((o, i) => `
         <button class="option-btn" data-idx="${i}">
             <span class="opt-letter">${letters[i]}</span>
-            ${escHtml(opt)}
-        </button>
-    `).join('');
+            ${esc(o)}
+        </button>`).join('');
 
-    optContainer.querySelectorAll('.option-btn').forEach(btn => {
+    opts.querySelectorAll('.option-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            if (!state.answered) handleAnswer(parseInt(btn.dataset.idx, 10));
+            if (!state.answered) handleAnswer(parseInt(btn.dataset.idx, 10), q);
         });
     });
-
-    // Iniciar timer
-    startTimer();
 }
 
-// ——— TIMER ———
-function startTimer() {
-    clearInterval(state.timerInterval);
-    state.timeLeft = TIMER_SECONDS;
-
-    const fillEl = document.getElementById('p-timer-fill');
-    const numEl  = document.getElementById('p-timer-num');
-
-    fillEl.style.width = '100%';
-    fillEl.className = 'timer-fill';
-    numEl.textContent = TIMER_SECONDS;
-
-    state.timerInterval = setInterval(() => {
-        state.timeLeft--;
-        numEl.textContent = state.timeLeft;
-        const pct = (state.timeLeft / TIMER_SECONDS) * 100;
-        fillEl.style.width = pct + '%';
-
-        if (state.timeLeft <= 5) {
-            fillEl.className = 'timer-fill danger';
-        } else if (state.timeLeft <= 8) {
-            fillEl.className = 'timer-fill warn';
-        }
-
-        if (state.timeLeft <= 0) {
-            clearInterval(state.timerInterval);
-            if (!state.answered) handleTimeout();
-        }
-    }, 1000);
-}
-
-function stopTimer() {
-    clearInterval(state.timerInterval);
-}
-
-// ——— RESPONDER ———
-function handleAnswer(idx) {
+async function handleAnswer(idx, q) {
     if (state.answered) return;
     state.answered = true;
-    stopTimer();
 
-    const q = state.questions[state.currentQ];
+    // Disable all buttons
+    document.querySelectorAll('#p-options .option-btn').forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === q.correct) btn.classList.add('correct');
+        if (i === idx && idx !== q.correct) btn.classList.add('wrong');
+    });
+
+    // Show feedback
     const isCorrect = idx === q.correct;
-    const buttons = document.querySelectorAll('#p-options .option-btn');
-
-    buttons.forEach((btn, i) => {
-        btn.disabled = true;
-        if (i === q.correct) btn.classList.add('correct');
-        if (i === idx && !isCorrect) btn.classList.add('wrong');
-    });
-
+    const feedback  = document.getElementById('p-feedback');
     if (isCorrect) {
-        const bonus = Math.round((state.timeLeft / TIMER_SECONDS) * BONUS_MAX);
-        state.score += POINTS_CORRECT + bonus;
-        state.correctCount++;
-        showFeedback('correct-fb', '✅', `¡Correcto! +${POINTS_CORRECT + bonus} pts`);
+        feedback.className = 'feedback-box correct-fb';
+        feedback.innerHTML = '<span>✅</span><span>¡Correcta! El host decidirá si avanzar.</span>';
     } else {
-        const correctText = q.options[q.correct];
-        showFeedback('wrong-fb', '❌', `Incorrecto. Era: ${correctText}`);
+        feedback.className = 'feedback-box wrong-fb';
+        feedback.innerHTML = `<span>❌</span><span>Incorrecto. Era: ${esc(q.options[q.correct])}</span>`;
     }
 
-    document.getElementById('p-score').textContent = state.score;
-
-    saveProgress();
-    setTimeout(() => nextQuestion(), 1800);
-}
-
-function handleTimeout() {
-    if (state.answered) return;
-    state.answered = true;
-
-    const q = state.questions[state.currentQ];
-    const buttons = document.querySelectorAll('#p-options .option-btn');
-    buttons.forEach((btn, i) => {
-        btn.disabled = true;
-        if (i === q.correct) btn.classList.add('correct');
-    });
-
-    showFeedback('timeout-fb', '⏰', `¡Tiempo! Era: ${q.options[q.correct]}`);
-    saveProgress();
-    setTimeout(() => nextQuestion(), 1800);
-}
-
-function showFeedback(cls, icon, text) {
-    const el = document.getElementById('p-feedback');
-    el.className = `feedback-box ${cls}`;
-    el.innerHTML = `<span style="font-size:1.35rem;">${icon}</span><span>${escHtml(text)}</span>`;
-}
-
-// ——— SIGUIENTE PREGUNTA ———
-function nextQuestion() {
-    state.currentQ++;
-    if (state.currentQ >= state.questions.length) {
-        endGame();
-    } else {
-        renderQuestion();
-    }
-}
-
-// ——— GUARDAR PROGRESO ———
-async function saveProgress() {
-    if (!state.playerId || !state.roomId) return;
+    // Send to Firebase
     try {
-        await set(ref(db, `rooms/${state.roomId}/players/${state.playerId}`), {
-            name:      state.playerName,
-            emoji:     state.playerEmoji,
-            character: state.playerChar,
-            color:     state.playerColor,
-            grad:      state.playerGrad,
-            score:     state.score,
-            correct:   state.correctCount,
-            finished:  state.gameOver,
-            ts:        Date.now()
-        });
-    } catch (err) {
-        console.error('Error guardando progreso:', err);
-    }
+        if (state.playerId && state.roomId) {
+            await set(
+                ref(db, `rooms/${state.roomId}/turnAnswers/${state.playerId}`),
+                { answerIdx: idx, isCorrect, timestamp: Date.now() }
+            );
+        }
+    } catch(_) {}
 }
 
-// ——— FIN DEL JUEGO ———
-async function endGame() {
-    state.gameOver = true;
-    stopTimer();
-    await saveProgress();
+// ——— FINAL SCREEN ———
+function showFinalScreen(room) {
+    const teams  = room.teams || {};
+    const sorted = Object.values(teams).sort((a,b) => (b.position||0) - (a.position||0));
+    const myTeam = TEAMS[state.teamIndex];
+    const icons  = ['🥇','🥈','🥉','4️⃣'];
 
-    const pct = state.correctCount / state.questions.length;
-    let resultEmoji, resultTitle;
-    if (pct >= 0.9) {
-        resultEmoji = '🏆';
-        resultTitle = '¡Alcanzaste la cumbre!';
-    } else if (pct >= 0.7) {
-        resultEmoji = '⭐';
-        resultTitle = '¡Excelente escalada!';
-    } else if (pct >= 0.5) {
-        resultEmoji = '👍';
-        resultTitle = '¡Buen intento!';
-    } else {
-        resultEmoji = '💪';
-        resultTitle = '¡Sigue practicando!';
+    // Find my team's rank
+    const myRank = sorted.findIndex(t => t.emoji === myTeam.emoji) + 1;
+    let resultEmoji = '🎉';
+    if (myRank === 1) resultEmoji = '🏆';
+    else if (myRank === 2) resultEmoji = '🥈';
+    else if (myRank === 3) resultEmoji = '🥉';
+
+    document.getElementById('p-final-emoji').textContent  = resultEmoji;
+    document.getElementById('p-final-team').textContent   = `${myTeam.emoji} ${myTeam.name} — Casilla ${sorted.find(t=>t.emoji===myTeam.emoji)?.position || 0}`;
+    document.getElementById('p-final-team').style.color   = myTeam.color;
+
+    const board = document.getElementById('p-final-board');
+    if (board) {
+        board.innerHTML = sorted.map((t, i) => `
+            <div class="final-item${t.emoji === myTeam.emoji ? ' final-me' : ''}">
+                <span class="fi-rank">${icons[i] || `${i+1}.`}</span>
+                <span class="fi-emoji">${t.emoji}</span>
+                <span class="fi-name" style="color:${t.color};">${esc(t.name)}</span>
+                <span class="fi-score">⬡ ${t.position||0}</span>
+            </div>`).join('');
     }
-
-    document.getElementById('p-result-emoji').textContent   = resultEmoji;
-    document.getElementById('p-result-title').textContent   = resultTitle;
-    document.getElementById('p-final-score').textContent    = state.score;
-    document.getElementById('p-final-correct').textContent  = `${state.correctCount} / ${state.questions.length}`;
-    document.getElementById('p-final-char').textContent     = `${state.playerEmoji} ${state.playerChar}`;
 
     showScreen('p-done');
-
-    // Cargar tabla final y escuchar en tiempo real
-    onValue(ref(db, `rooms/${state.roomId}/players`), (snap) => {
-        const data = snap.val();
-        if (!data) return;
-        const players = Object.entries(data).map(([id, p]) => ({ id, ...p }));
-        renderFinalBoard(players);
-    });
 }
 
-// ——— TABLA FINAL ———
-function renderFinalBoard(players) {
-    const container = document.getElementById('p-final-board');
-    if (!container) return;
-
-    const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
-    const top5 = sorted.slice(0, 5);
-    const rankIcons = ['🥇', '🥈', '🥉'];
-
-    container.innerHTML = top5.map((p, i) => {
-        const rank = rankIcons[i] || `${i + 1}.`;
-        const isMe = p.id === state.playerId;
-        return `
-            <div class="final-item" style="${isMe ? 'background:rgba(255,78,205,.15); border-radius:8px; padding:0.35rem 0.5rem;' : ''}">
-                <span class="fi-rank">${rank}</span>
-                <span class="fi-emoji">${p.emoji || '🧗'}</span>
-                <span class="fi-name">${escHtml(p.name || 'Jugador')}${isMe ? ' (tú)' : ''}</span>
-                <span class="fi-score">${p.score || 0}</span>
-            </div>
-        `;
-    }).join('');
-}
-
-// ——— Arrancar ———
 init();

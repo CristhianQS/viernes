@@ -4,7 +4,7 @@
 //  Formato: { category, question, options: [A,B,C,D], correct: índice }
 // ================================================================
 
-const ALL_QUESTIONS = [
+export const ALL_QUESTIONS = [
     // --- Geografía ---
     {
         category: "🌍 Geografía",

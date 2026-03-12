@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>⛰️ Sube la Montaña - Jugador</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- ===== PANTALLA 1: UNIRSE ===== -->
+    <div id="p-join" class="p-screen active">
+        <div class="p-join-content">
+            <span style="font-size:4rem; display:block; margin-bottom:0.5rem; animation: float 3s ease-in-out infinite;">⛰️</span>
+            <h1 class="game-title" style="font-size:2.4rem; margin-bottom:0.4rem;">Sube la <span>Montaña</span></h1>
+            <p style="color:var(--text-dim); font-size:0.9rem; margin-bottom:1.5rem;">Quiz multijugador</p>
+
+            <div class="p-room-badge">Sala: <span id="p-room-display">------</span></div>
+
+            <div class="input-card" style="width:100%;">
+                <label for="p-name">¿Cómo te llamas?</label>
+                <input type="text" id="p-name" placeholder="Tu nombre aquí..." maxlength="20" autocomplete="off">
+                <button id="btn-join-next" class="btn-primary">Siguiente →</button>
+            </div>
+            <p id="p-join-error" style="color:var(--accent); font-size:0.85rem; margin-top:0.75rem; font-weight:700; min-height:1.2em;"></p>
+        </div>
+    </div>
+
+    <!-- ===== PANTALLA 2: PERSONAJE ===== -->
+    <div id="p-char" class="p-screen">
+        <div class="char-screen-content" style="padding:1.5rem; max-width:480px; margin:0 auto; width:100%; display:flex; flex-direction:column; justify-content:center; flex:1;">
+            <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.35rem;">Elige tu <span class="highlight">personaje</span></h2>
+            <p class="char-subtitle">Tu compañero de aventura</p>
+            <div class="characters-grid" id="p-char-grid">
+                <div class="character-card" data-emoji="🧗" data-character="alpinista">
+                    <div class="char-icon">🧗</div>
+                    <div class="char-name">Alpinista</div>
+                    <div class="char-desc">Experto escalador</div>
+                </div>
+                <div class="character-card" data-emoji="🦊" data-character="zorro">
+                    <div class="char-icon">🦊</div>
+                    <div class="char-name">Zorro</div>
+                    <div class="char-desc">Ágil y astuto</div>
+                </div>
+                <div class="character-card" data-emoji="🐧" data-character="pinguino">
+                    <div class="char-icon">🐧</div>
+                    <div class="char-name">Pingüino</div>
+                    <div class="char-desc">Frío como el hielo</div>
+                </div>
+                <div class="character-card" data-emoji="🐉" data-character="dragon">
+                    <div class="char-icon">🐉</div>
+                    <div class="char-name">Dragón</div>
+                    <div class="char-desc">Fuego en la cumbre</div>
+                </div>
+                <div class="character-card" data-emoji="🐻" data-character="oso">
+                    <div class="char-icon">🐻</div>
+                    <div class="char-name">Oso</div>
+                    <div class="char-desc">Fuerza bruta</div>
+                </div>
+                <div class="character-card" data-emoji="🦅" data-character="aguila">
+                    <div class="char-icon">🦅</div>
+                    <div class="char-name">Águila</div>
+                    <div class="char-desc">Visión perfecta</div>
+                </div>
+            </div>
+            <button id="btn-char-play" class="btn-primary" disabled>¡Jugar! 🏔️</button>
+            <p id="p-char-error" style="color:var(--accent); font-size:0.85rem; margin-top:0.6rem; font-weight:700; text-align:center; min-height:1.2em;"></p>
+        </div>
+    </div>
+
+    <!-- ===== PANTALLA 3: QUIZ ===== -->
+    <div id="p-quiz" class="p-screen">
+        <div class="p-quiz-content">
+            <!-- Header -->
+            <div class="question-header">
+                <div class="player-info">
+                    <span id="p-char-hdr" class="hdr-char"></span>
+                    <span id="p-name-hdr" style="font-weight:800; font-size:0.88rem;"></span>
+                </div>
+                <div class="q-counter">
+                    Pregunta <span id="p-q-num">1</span> / <span id="p-q-total">10</span>
+                </div>
+                <div class="score-badge">⭐ <span id="p-score">0</span></div>
+            </div>
+
+            <!-- Timer -->
+            <div class="timer-row">
+                <div class="timer-track">
+                    <div id="p-timer-fill" class="timer-fill"></div>
+                </div>
+                <span id="p-timer-num" class="timer-num">15</span>
+            </div>
+
+            <!-- Mini mountain progress -->
+            <div class="p-mountain-progress">
+                <span id="p-mountain-emoji" style="font-size:1.3rem;">🧗</span>
+                <div class="p-mountain-track">
+                    <div id="p-mountain-bar" class="p-mountain-fill"></div>
+                </div>
+                <span>🏔️</span>
+            </div>
+
+            <!-- Question card -->
+            <div class="question-card">
+                <div id="p-category" class="q-category">Cargando...</div>
+                <p id="p-question" class="q-text">Preparando pregunta...</p>
+            </div>
+
+            <!-- Options -->
+            <div id="p-options" class="options-grid"></div>
+
+            <!-- Feedback -->
+            <div id="p-feedback" class="feedback-box hidden"></div>
+        </div>
+    </div>
+
+    <!-- ===== PANTALLA 4: TERMINADO ===== -->
+    <div id="p-done" class="p-screen">
+        <div class="p-done-content">
+            <div id="p-result-emoji" style="font-size:5rem; animation: popIn 0.5s ease;"></div>
+            <h2 id="p-result-title" style="font-size:2rem; font-weight:900;">¡Juego Terminado!</h2>
+
+            <div class="result-card" style="width:100%;">
+                <div class="result-stat">
+                    <span class="r-label">Puntuación final</span>
+                    <span class="r-val" id="p-final-score" style="color:var(--gold);">0</span>
+                </div>
+                <div class="result-stat">
+                    <span class="r-label">Respuestas correctas</span>
+                    <span class="r-val" id="p-final-correct">0 / 10</span>
+                </div>
+                <div class="result-stat">
+                    <span class="r-label">Tu personaje</span>
+                    <span class="r-val" id="p-final-char"></span>
+                </div>
+            </div>
+
+            <div class="final-board" style="width:100%;">
+                <h3>🏆 Top 5 Final</h3>
+                <div id="p-final-board"></div>
+            </div>
+
+            <button id="btn-play-again" class="btn-primary" style="max-width:300px;">🔄 Jugar de Nuevo</button>
+        </div>
+    </div>
+
+    <script type="module" src="js/player.js"></script>
+</body>
+</html>

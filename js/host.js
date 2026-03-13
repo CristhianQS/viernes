@@ -138,6 +138,17 @@ window._ask = async function() {
 };
 
 window._correct = async function() {
+    // El equipo respondió bien → pasan a fase dice-ready para que el jugador lance el dado
+    await update(ref(db, `rooms/${roomId}`), {
+        phase: 'dice-ready',
+        currentQuestion: null,
+        diceResult: null,
+        turnResult: 'correct'
+    });
+};
+
+// Lanzar dado desde el host (fallback si ningún jugador lo hace)
+window._hostRoll = async function() {
     const ti     = roomState.currentTeamIndex ?? 0;
     const dice   = ~~(Math.random() * 6) + 1;
     const curPos = roomState.teams?.[ti]?.position ?? 0;
@@ -146,7 +157,6 @@ window._correct = async function() {
 
     await update(ref(db, `rooms/${roomId}`), {
         phase: won ? 'finished' : 'dice',
-        currentQuestion: null,
         diceResult: dice,
         turnResult: 'correct',
         [`teams/${ti}/position`]: newPos
@@ -312,6 +322,21 @@ function updatePanel(roomData, players) {
                 <button onclick="window._correct()" class="btn-primary" style="flex:1;background:linear-gradient(135deg,#00E676,#00897B);color:#000;font-weight:900;">✓ Correcto</button>
                 <button onclick="window._wrong()" class="btn-secondary btn-sm" style="flex:1;color:var(--danger);border-color:var(--danger);">✗ Incorrecto</button>
             </div>`;
+
+    } else if (phase === 'dice-ready') {
+        ctrl.innerHTML = `
+            <div style="text-align:center;padding:1rem;background:rgba(255,215,0,0.1);border-radius:10px;margin-bottom:.5rem;">
+                <div style="font-size:2.5rem;margin-bottom:.4rem;">🎲</div>
+                <div style="font-weight:900;color:var(--gold);font-size:1rem;">
+                    ✅ ${esc(team.emoji)} ${esc(team.name)} respondió bien
+                </div>
+                <div style="font-size:.8rem;color:var(--text-dim);margin-top:.3rem;">
+                    Esperando que el jugador lance el dado en su celular…
+                </div>
+            </div>
+            <button onclick="window._hostRoll()" class="btn-secondary btn-sm" style="width:100%;">
+                🎲 Lanzar dado por el equipo
+            </button>`;
 
     } else if (phase === 'dice') {
         const pos  = roomData.teams?.[ti]?.position ?? 0;

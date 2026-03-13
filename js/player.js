@@ -15,6 +15,7 @@ const state = {
     name:      '',
     teamIndex: null,
     answered:  false,
+    rolling:   false,
 };
 
 const esc = s => String(s)
@@ -175,11 +176,24 @@ function listenToRoom() {
         if (phase === 'question') {
             if (myTurn && room.currentQuestion) {
                 showScreen('p-question');
+                const hdr = document.getElementById('p-team-hdr');
+                if (hdr) hdr.textContent = TEAMS[state.teamIndex]?.emoji || '';
                 renderQuestion(room.currentQuestion);
             } else {
                 showScreen('p-wait');
                 const team = TEAMS[cti];
                 updateWatchScreen(room, `${team.emoji} ${team.name} está respondiendo...`);
+            }
+            return;
+        }
+
+        if (phase === 'dice-ready') {
+            showScreen('p-wait');
+            if (myTurn) {
+                showDiceRollUI(room);
+            } else {
+                const team = TEAMS[cti];
+                updateWatchScreen(room, `🎲 ${team.emoji} ${team.name} va a lanzar el dado…`);
             }
             return;
         }
@@ -214,9 +228,91 @@ function listenToRoom() {
 function updateWatchScreen(room, statusMsg) {
     const statusEl = document.getElementById('watch-status');
     if (statusEl) statusEl.textContent = statusMsg;
-
+    // Limpiar UI del dado si estamos en otra fase
+    const diceUiEl = document.getElementById('dice-ui');
+    if (diceUiEl) diceUiEl.innerHTML = '';
     renderMiniBoard(room);
 }
+
+function showDiceRollUI(room) {
+    const cti  = room.currentTeamIndex ?? 0;
+    const team = TEAMS[cti];
+
+    const statusEl = document.getElementById('watch-status');
+    if (statusEl) statusEl.textContent = `✅ ¡${team.name} respondió bien!`;
+
+    const diceUiEl = document.getElementById('dice-ui');
+    if (diceUiEl) {
+        diceUiEl.innerHTML = `
+            <div class="dice-roll-box">
+                <div id="dice-display" class="dice-big-face">🎲</div>
+                <button id="btn-roll-dice" class="btn-roll" onclick="window._playerRoll()">
+                    🎲 ¡Lanzar Dado!
+                </button>
+            </div>`;
+    }
+    renderMiniBoard(room);
+}
+
+window._playerRoll = async function() {
+    if (state.rolling) return;
+    state.rolling = true;
+
+    const btn    = document.getElementById('btn-roll-dice');
+    const diceEl = document.getElementById('dice-display');
+    if (btn) btn.disabled = true;
+
+    const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+
+    // Animación del dado girando
+    await new Promise(resolve => {
+        let count = 0;
+        if (diceEl) diceEl.classList.add('dice-rolling');
+        const interval = setInterval(() => {
+            if (diceEl) diceEl.textContent = faces[Math.floor(Math.random() * 6)];
+            count++;
+            if (count >= 14) {
+                clearInterval(interval);
+                if (diceEl) diceEl.classList.remove('dice-rolling');
+                resolve();
+            }
+        }, 100);
+    });
+
+    // Número final del dado
+    const dice = Math.floor(Math.random() * 6) + 1;
+    if (diceEl) diceEl.textContent = faces[dice - 1];
+
+    // Pequeña pausa para que vean el resultado
+    await new Promise(r => setTimeout(r, 500));
+
+    try {
+        const snap = await get(ref(db, `rooms/${state.roomId}`));
+        if (!snap.exists()) { state.rolling = false; return; }
+        const roomData = snap.val();
+        const ti = roomData.currentTeamIndex ?? 0;
+
+        // Verificar que aún es fase dice-ready y nuestro turno
+        if (roomData.phase !== 'dice-ready' || ti !== state.teamIndex) {
+            state.rolling = false;
+            return;
+        }
+
+        const curPos = roomData.teams?.[ti]?.position ?? 0;
+        const newPos = Math.min(curPos + dice, BOARD_SIZE);
+        const won    = newPos >= BOARD_SIZE;
+
+        await update(ref(db, `rooms/${state.roomId}`), {
+            phase:                    won ? 'finished' : 'dice',
+            diceResult:               dice,
+            [`teams/${ti}/position`]: newPos
+        });
+    } catch(err) {
+        console.error('Error al lanzar dado:', err);
+    }
+
+    state.rolling = false;
+};
 
 // ——— MINI BOARD ———
 function renderMiniBoard(room) {

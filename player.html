@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>⛰️ Sube la Montaña - Jugador</title>
+    <title>🎲 Quiz Tablero - Jugador</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
@@ -13,187 +13,71 @@
     <!-- ===== PANTALLA 1: UNIRSE ===== -->
     <div id="p-join" class="p-screen active">
         <div class="p-join-content">
-            <span style="font-size:4rem; display:block; margin-bottom:0.5rem; animation: float 3s ease-in-out infinite;">⛰️</span>
-            <h1 class="game-title" style="font-size:2.4rem; margin-bottom:0.4rem;">Sube la <span>Montaña</span></h1>
-            <p style="color:var(--text-dim); font-size:0.9rem; margin-bottom:1.5rem;">Quiz multijugador</p>
+            <span style="font-size:4rem; display:block; margin-bottom:0.5rem; animation: float 3s ease-in-out infinite;">🎲</span>
+            <h1 class="game-title" style="font-size:2.4rem; margin-bottom:0.4rem;">Quiz <span>Tablero</span></h1>
+            <p style="color:var(--text-dim); font-size:0.9rem; margin-bottom:1.5rem;">Quiz multijugador por equipos</p>
 
-            <div class="p-room-badge">Sala: <span id="p-room-display">------</span></div>
+            <div class="p-room-badge" id="p-room-badge">Sala: ------</div>
 
-            <div class="input-card" style="width:100%;">
+            <div class="input-card" style="width:100%; margin-top:1rem;">
                 <label for="p-name">¿Cómo te llamas?</label>
                 <input type="text" id="p-name" placeholder="Tu nombre aquí..." maxlength="20" autocomplete="off">
                 <button id="btn-join-next" class="btn-primary">Siguiente →</button>
             </div>
-            <p id="p-join-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.75rem; font-weight:700; min-height:1.2em;"></p>
+            <p id="join-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.75rem; font-weight:700; min-height:1.2em;"></p>
         </div>
     </div>
 
-    <!-- ===== PANTALLA 2: PERSONAJE ===== -->
-    <div id="p-char" class="p-screen">
-        <div class="char-screen-content" style="padding:1.5rem; max-width:480px; margin:0 auto; width:100%; display:flex; flex-direction:column; justify-content:center; flex:1;">
-            <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.35rem;">Elige tu <span class="highlight">personaje</span></h2>
-            <p class="char-subtitle">Tu compañero de aventura</p>
-            <div class="characters-grid" id="p-char-grid">
-                <div class="character-card"
-                     data-emoji="🦁"
-                     data-character="leon"
-                     data-color="#FF8C00"
-                     data-grad="linear-gradient(135deg,#FF8C00,#FFD700)"
-                     style="--char-grad:linear-gradient(135deg,#FF8C00,#FFD700);--char-color:#FF8C00;">
-                    <div class="char-icon">🦁</div>
-                    <div class="char-name">León</div>
-                    <div class="char-desc">Rey de la manada</div>
-                    <div class="char-color-bar" style="background:#FF8C00;"></div>
-                </div>
-                <div class="character-card"
-                     data-emoji="🐺"
-                     data-character="lobo"
-                     data-color="#9B59B6"
-                     data-grad="linear-gradient(135deg,#9B59B6,#C39BD3)"
-                     style="--char-grad:linear-gradient(135deg,#9B59B6,#C39BD3);--char-color:#9B59B6;">
-                    <div class="char-icon">🐺</div>
-                    <div class="char-name">Lobo</div>
-                    <div class="char-desc">Espíritu del bosque</div>
-                    <div class="char-color-bar" style="background:#9B59B6;"></div>
-                </div>
-                <div class="character-card"
-                     data-emoji="🦊"
-                     data-character="zorro"
-                     data-color="#FF4ECD"
-                     data-grad="linear-gradient(135deg,#FF4ECD,#FF9CE0)"
-                     style="--char-grad:linear-gradient(135deg,#FF4ECD,#FF9CE0);--char-color:#FF4ECD;">
-                    <div class="char-icon">🦊</div>
-                    <div class="char-name">Zorro</div>
-                    <div class="char-desc">Ágil y astuto</div>
-                    <div class="char-color-bar" style="background:#FF4ECD;"></div>
-                </div>
-                <div class="character-card"
-                     data-emoji="🐉"
-                     data-character="dragon"
-                     data-color="#00E5FF"
-                     data-grad="linear-gradient(135deg,#00E5FF,#0090FF)"
-                     style="--char-grad:linear-gradient(135deg,#00E5FF,#0090FF);--char-color:#00E5FF;">
-                    <div class="char-icon">🐉</div>
-                    <div class="char-name">Dragón</div>
-                    <div class="char-desc">Fuego en la cumbre</div>
-                    <div class="char-color-bar" style="background:#00E5FF;"></div>
-                </div>
-                <div class="character-card"
-                     data-emoji="🐯"
-                     data-character="tigre"
-                     data-color="#FF6B35"
-                     data-grad="linear-gradient(135deg,#FF6B35,#FFD700)"
-                     style="--char-grad:linear-gradient(135deg,#FF6B35,#FFD700);--char-color:#FF6B35;">
-                    <div class="char-icon">🐯</div>
-                    <div class="char-name">Tigre</div>
-                    <div class="char-desc">Velocidad pura</div>
-                    <div class="char-color-bar" style="background:#FF6B35;"></div>
-                </div>
-                <div class="character-card"
-                     data-emoji="🦅"
-                     data-character="aguila"
-                     data-color="#00FF94"
-                     data-grad="linear-gradient(135deg,#00FF94,#00C9FF)"
-                     style="--char-grad:linear-gradient(135deg,#00FF94,#00C9FF);--char-color:#00FF94;">
-                    <div class="char-icon">🦅</div>
-                    <div class="char-name">Águila</div>
-                    <div class="char-desc">Visión perfecta</div>
-                    <div class="char-color-bar" style="background:#00FF94;"></div>
-                </div>
-            </div>
-            <button id="btn-char-play" class="btn-primary" disabled>¡Jugar! 🏔️</button>
-            <p id="p-char-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.6rem; font-weight:700; text-align:center; min-height:1.2em;"></p>
+    <!-- ===== PANTALLA 2: ELEGIR EQUIPO ===== -->
+    <div id="p-team" class="p-screen">
+        <div class="p-join-content">
+            <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.35rem;">Elige tu <span class="highlight">Equipo</span></h2>
+            <p style="color:var(--text-dim); margin-bottom:1.5rem;">Selecciona el equipo en el que jugarás</p>
+            <div id="team-grid" class="team-grid"></div>
+            <button id="btn-team-join" class="btn-primary" disabled style="margin-top:1.2rem; max-width:300px;">¡Unirse al Equipo! 🎲</button>
+            <p id="team-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.6rem; font-weight:700; min-height:1.2em;"></p>
         </div>
     </div>
 
-    <!-- ===== PANTALLA 3: ESPERANDO ===== -->
-    <div id="p-waiting" class="p-screen">
-        <div class="p-waiting-content">
-            <div id="pw-avatar" class="waiting-avatar-circle"></div>
-            <h2 style="font-size:1.8rem; font-weight:900;">¡Listo, <span id="pw-name"></span>!</h2>
-            <p style="color:var(--text-dim);">Esperando que el host inicie el juego...</p>
-            <div class="waiting-dots">
-                <span></span><span></span><span></span>
-            </div>
-            <div style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:.8rem 1.5rem;font-size:.85rem;color:var(--text-dim);">
-                <strong style="color:#fff;">Sala:</strong> <span id="pw-room"></span>
-            </div>
+    <!-- ===== PANTALLA 3: ESPERAR / VER TABLERO ===== -->
+    <div id="p-wait" class="p-screen">
+        <div class="p-wait-content">
+            <div id="my-team-display" style="margin-bottom:0.75rem;"></div>
+            <div id="watch-status" class="watch-status-text">Esperando...</div>
+            <!-- Zona del dado (visible cuando es el turno del equipo y fase dice-ready) -->
+            <div id="dice-ui" style="width:100%; max-width:320px;"></div>
+            <div id="mini-board" class="mini-board-wrap"></div>
         </div>
     </div>
 
-    <!-- ===== PANTALLA 4: QUIZ ===== -->
-    <div id="p-quiz" class="p-screen">
+    <!-- ===== PANTALLA 4: PREGUNTA ===== -->
+    <div id="p-question" class="p-screen">
         <div class="p-quiz-content">
-            <!-- Header -->
-            <div class="question-header">
+            <div class="question-header" style="flex-shrink:0;">
                 <div class="player-info">
-                    <span id="p-char-hdr" class="hdr-char"></span>
-                    <span id="p-name-hdr" style="font-weight:800; font-size:0.88rem;"></span>
+                    <span id="p-team-hdr" class="hdr-char"></span>
+                    <span style="font-weight:800; font-size:0.88rem;">¡Responde!</span>
                 </div>
-                <div class="q-counter">
-                    Pregunta <span id="p-q-num">1</span> / <span id="p-q-total">10</span>
-                </div>
-                <div class="score-badge">⭐ <span id="p-score">0</span></div>
+                <div class="q-counter">🎲 Si aciertas, lanzas el dado</div>
             </div>
 
-            <!-- Timer -->
-            <div class="timer-row">
-                <div class="timer-track">
-                    <div id="p-timer-fill" class="timer-fill"></div>
-                </div>
-                <span id="p-timer-num" class="timer-num">15</span>
-            </div>
-
-            <!-- Mini mountain progress -->
-            <div class="p-mountain-progress">
-                <span id="p-mountain-emoji" style="font-size:1.3rem;">🧗</span>
-                <div class="p-mountain-track">
-                    <div id="p-mountain-bar" class="p-mountain-fill"></div>
-                </div>
-                <span>🏔️</span>
-            </div>
-
-            <!-- Question card -->
             <div class="question-card">
-                <div id="p-category" class="q-category">Cargando...</div>
-                <p id="p-question" class="q-text">Preparando pregunta...</p>
+                <div id="p-q-category" class="q-category">Categoría</div>
+                <p id="p-q-text" class="q-text">Pregunta...</p>
             </div>
 
-            <!-- Options -->
             <div id="p-options" class="options-grid"></div>
-
-            <!-- Feedback -->
             <div id="p-feedback" class="feedback-box hidden"></div>
         </div>
     </div>
 
-    <!-- ===== PANTALLA 5: TERMINADO ===== -->
+    <!-- ===== PANTALLA 5: FIN ===== -->
     <div id="p-done" class="p-screen">
         <div class="p-done-content">
-            <div id="p-result-emoji" style="font-size:5rem; animation: popIn 0.5s ease;"></div>
-            <h2 id="p-result-title" style="font-size:2rem; font-weight:900;">¡Juego Terminado!</h2>
-
-            <div class="result-card" style="width:100%;">
-                <div class="result-stat">
-                    <span class="r-label">Puntuación final</span>
-                    <span class="r-val" id="p-final-score" style="color:var(--gold);">0</span>
-                </div>
-                <div class="result-stat">
-                    <span class="r-label">Respuestas correctas</span>
-                    <span class="r-val" id="p-final-correct">0 / 10</span>
-                </div>
-                <div class="result-stat">
-                    <span class="r-label">Tu personaje</span>
-                    <span class="r-val" id="p-final-char"></span>
-                </div>
-            </div>
-
-            <div class="final-board" style="width:100%;">
-                <h3>🏆 Top 5 Final</h3>
-                <div id="p-final-board"></div>
-            </div>
-
-            <button id="btn-play-again" class="btn-primary" style="max-width:300px;">🔄 Jugar de Nuevo</button>
+            <div id="p-final-emoji" style="font-size:5rem; animation: popIn 0.5s ease;"></div>
+            <h2 style="font-size:2rem; font-weight:900;">¡Juego Terminado!</h2>
+            <div id="p-final-team" style="font-size:1.1rem; font-weight:800; margin-bottom:0.5rem;"></div>
+            <div id="p-final-board" style="width:100%;"></div>
         </div>
     </div>
 

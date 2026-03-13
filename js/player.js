@@ -8,14 +8,14 @@ const AVATARS = [
     { emoji: '🐢', name: 'Tortuga',  color: '#4ADE80', grad: 'linear-gradient(135deg,#4ADE80,#16A34A)' },
     { emoji: '🦊', name: 'Zorro',    color: '#FB923C', grad: 'linear-gradient(135deg,#FB923C,#EA580C)' },
     { emoji: '🐻', name: 'Oso',      color: '#D97706', grad: 'linear-gradient(135deg,#D97706,#92400E)' },
-    { emoji: '🦁', name: 'León',     color: '#FDE047', grad: 'linear-gradient(135deg,#FDE047,#F59E0B)' },
+    { emoji: '🦁', name: 'León',     color: '#F59E0B', grad: 'linear-gradient(135deg,#FBBF24,#F59E0B)' },
     { emoji: '🐯', name: 'Tigre',    color: '#F97316', grad: 'linear-gradient(135deg,#F97316,#DC2626)' },
-    { emoji: '🐺', name: 'Lobo',     color: '#94A3B8', grad: 'linear-gradient(135deg,#94A3B8,#475569)' },
-    { emoji: '🐨', name: 'Koala',    color: '#93C5FD', grad: 'linear-gradient(135deg,#93C5FD,#3B82F6)' },
-    { emoji: '🦔', name: 'Erizo',    color: '#C084FC', grad: 'linear-gradient(135deg,#C084FC,#9333EA)' },
-    { emoji: '🦌', name: 'Ciervo',   color: '#A78BFA', grad: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
-    { emoji: '🐿️', name: 'Ardilla',  color: '#F87171', grad: 'linear-gradient(135deg,#F87171,#B91C1C)' },
-    { emoji: '🦝', name: 'Mapache',  color: '#6EE7B7', grad: 'linear-gradient(135deg,#6EE7B7,#059669)' },
+    { emoji: '🐺', name: 'Lobo',     color: '#64748B', grad: 'linear-gradient(135deg,#94A3B8,#475569)' },
+    { emoji: '🐨', name: 'Koala',    color: '#3B82F6', grad: 'linear-gradient(135deg,#93C5FD,#3B82F6)' },
+    { emoji: '🦔', name: 'Erizo',    color: '#9333EA', grad: 'linear-gradient(135deg,#C084FC,#9333EA)' },
+    { emoji: '🦌', name: 'Ciervo',   color: '#7C3AED', grad: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
+    { emoji: '🐿️', name: 'Ardilla',  color: '#DC2626', grad: 'linear-gradient(135deg,#F87171,#B91C1C)' },
+    { emoji: '🦝', name: 'Mapache',  color: '#059669', grad: 'linear-gradient(135deg,#6EE7B7,#059669)' },
 ];
 
 const state = {
@@ -23,9 +23,13 @@ const state = {
     playerId:  null,
     name:      '',
     avatarIdx: null,
-    answered:  false,
+    answered:  false,  // local flag to prevent double-submit
     rolling:   false,
+    lastPhase: null,
+    lastQuestionId: null,
 };
+
+let playerTimerInterval = null;
 
 const esc = s => String(s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
@@ -122,10 +126,14 @@ async function handleAvatarJoin() {
         state.playerId  = playerRef.key;
 
         await set(playerRef, {
-            name:      state.name,
-            avatarIdx: state.avatarIdx,
-            position:  0,
-            joinedAt:  Date.now()
+            name:        state.name,
+            avatarIdx:   state.avatarIdx,
+            position:    0,
+            joinedAt:    Date.now(),
+            answered:    false,
+            answerCorrect: false,
+            canRoll:     false,
+            rolled:      false,
         });
 
         setupWaitingScreen();
@@ -159,108 +167,147 @@ function setupWaitingScreen() {
 function listenToRoom() {
     onValue(ref(db, `rooms/${state.roomId}`), snap => {
         if (!snap.exists()) return;
-        const room   = snap.val();
-        const phase  = room.phase;
-        const pid    = room.currentPlayerId;
-        const myTurn = state.playerId === pid;
-        const curP   = room.players?.[pid];
-        const curAv  = AVATARS[curP?.avatarIdx ?? 0];
+        const room  = snap.val();
+        const phase = room.phase;
+        const myData = room.players?.[state.playerId] || {};
+
+        // Reset local answered flag when new question starts
+        const qId = room.currentQuestion?.question || '';
+        if (phase === 'question' && qId !== state.lastQuestionId) {
+            state.answered      = false;
+            state.lastQuestionId = qId;
+            stopPlayerTimer();
+        }
 
         if (phase === 'lobby') {
             showScreen('p-wait');
-            updateWatchScreen(room, 'Esperando que el host inicie el juego… 🌵');
+            clearDiceUI();
+            updateWatchStatus('Esperando que el host inicie el juego… 🌵');
+            renderMiniBoard(room);
             return;
         }
 
         if (phase === 'finished') {
+            stopPlayerTimer();
             showFinalScreen(room);
             return;
         }
 
         if (phase === 'idle') {
             showScreen('p-wait');
-            updateWatchScreen(room, myTurn
-                ? `✨ ¡Es tu turno! El host te enviará la pregunta…`
-                : `Turno de ${curAv.emoji} ${esc(curP?.name || '?')}`);
+            stopPlayerTimer();
+
+            // If player can still roll from previous correct answer
+            if (myData.canRoll && !myData.rolled) {
+                updateWatchStatus(`✅ ¡Respondiste bien! Lanza el dado 🎲`);
+                showDiceRollUI(room);
+            } else {
+                clearDiceUI();
+                updateWatchStatus('Espera la siguiente pregunta… 🌵');
+            }
+            renderMiniBoard(room);
             return;
         }
 
         if (phase === 'question') {
-            if (myTurn && room.currentQuestion) {
-                showScreen('p-question');
-                const hdr = document.getElementById('p-team-hdr');
-                if (hdr) hdr.textContent = AVATARS[state.avatarIdx]?.emoji || '';
-                renderQuestion(room.currentQuestion);
-            } else {
+            if (myData.answered) {
+                // Already answered — show wait screen with result + possibly dice
                 showScreen('p-wait');
-                updateWatchScreen(room, `${curAv.emoji} ${esc(curP?.name)} está respondiendo…`);
-            }
-            return;
-        }
+                stopPlayerTimer();
 
-        if (phase === 'dice-ready') {
-            showScreen('p-wait');
-            if (myTurn) {
-                showDiceRollUI(room);
+                if (myData.canRoll && !myData.rolled) {
+                    updateWatchStatus(`✅ ¡Correcto! Lanza el dado 🎲`);
+                    showDiceRollUI(room);
+                } else if (myData.answerCorrect) {
+                    updateWatchStatus(`✅ Bien hecho ${AVATARS[state.avatarIdx].emoji} Ya lanzaste el dado!`);
+                    clearDiceUI();
+                } else {
+                    updateWatchStatus(`❌ Respuesta incorrecta. ¡Suerte en la siguiente!`);
+                    clearDiceUI();
+                }
+                renderMiniBoard(room);
             } else {
-                updateWatchScreen(room, `🎲 ${curAv.emoji} ${esc(curP?.name)} va a lanzar el dado…`);
+                // Show question screen
+                showScreen('p-question');
+                clearDiceUI();
+                if (room.currentQuestion && !state.answered) {
+                    const hdr = document.getElementById('p-team-hdr');
+                    if (hdr) hdr.textContent = AVATARS[state.avatarIdx]?.emoji || '';
+                    renderQuestion(room.currentQuestion);
+                    startPlayerTimer(room.questionStartedAt, room.questionTimeLimit || 30);
+                }
             }
-            return;
-        }
-
-        if (phase === 'dice') {
-            showScreen('p-wait');
-            const faces = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
-            const dice  = room.diceResult || 0;
-            const pos   = room.players?.[pid]?.position ?? 0;
-            updateWatchScreen(room, myTurn
-                ? `🎲 Sacaste ${faces[dice]} ${dice} — ¡Estás en casilla ${pos}!`
-                : `🎲 ${curAv.emoji} ${esc(curP?.name)} sacó ${faces[dice]} ${dice} — Casilla ${pos}`
-            );
-            return;
-        }
-
-        if (phase === 'wrong') {
-            showScreen('p-wait');
-            updateWatchScreen(room, myTurn
-                ? `❌ Esta vez no avanzas. ¡Suerte en el próximo turno!`
-                : `❌ ${curAv.emoji} ${esc(curP?.name)} no avanzó`
-            );
             return;
         }
     });
 }
 
-function updateWatchScreen(room, statusMsg) {
-    const statusEl = document.getElementById('watch-status');
-    if (statusEl) statusEl.textContent = statusMsg;
-    const diceUiEl = document.getElementById('dice-ui');
-    if (diceUiEl) diceUiEl.innerHTML = '';
-    renderMiniBoard(room);
+function updateWatchStatus(msg) {
+    const el = document.getElementById('watch-status');
+    if (el) el.textContent = msg;
+}
+
+function clearDiceUI() {
+    const el = document.getElementById('dice-ui');
+    if (el) el.innerHTML = '';
 }
 
 function showDiceRollUI(room) {
-    const av = AVATARS[state.avatarIdx];
-
-    const statusEl = document.getElementById('watch-status');
-    if (statusEl) statusEl.textContent = `✅ ¡Respondiste bien, ${esc(state.name)}!`;
-
     const diceUiEl = document.getElementById('dice-ui');
-    if (diceUiEl) {
-        diceUiEl.innerHTML = `
-            <div class="dice-roll-box">
-                <div style="font-size:.9rem;color:var(--text-dim);font-weight:700;margin-bottom:.5rem;">
-                    Lanza el dado y avanza
-                </div>
-                <div id="dice-display" class="dice-big-face">🎲</div>
-                <button id="btn-roll-dice" class="btn-roll" onclick="window._playerRoll()">
-                    🎲 ¡Lanzar Dado!
-                </button>
-            </div>`;
-    }
-    renderMiniBoard(room);
+    if (!diceUiEl) return;
+    if (diceUiEl.querySelector('#btn-roll-dice')) return; // already shown
+
+    diceUiEl.innerHTML = `
+        <div class="dice-roll-box">
+            <div style="font-size:.9rem;color:var(--text-dim);font-weight:700;margin-bottom:.5rem;">
+                Lanza el dado y avanza 🎲
+            </div>
+            <div id="dice-display" class="dice-big-face">🎲</div>
+            <button id="btn-roll-dice" class="btn-roll" onclick="window._playerRoll()">
+                🎲 ¡Lanzar Dado!
+            </button>
+        </div>`;
 }
 
+// ——— PLAYER TIMER ———
+function startPlayerTimer(startedAt, limit) {
+    stopPlayerTimer();
+    if (!startedAt || !limit) return;
+
+    playerTimerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        const left    = Math.max(0, limit - elapsed);
+        const pct     = (left / limit) * 100;
+
+        const barEl   = document.getElementById('p-timer-bar-inner');
+        const labelEl = document.getElementById('p-timer-label');
+
+        if (barEl) {
+            barEl.style.width = pct + '%';
+            barEl.style.background = left <= 10 ? '#DC2626' : left <= 20 ? '#FBBF24' : '#10B981';
+        }
+        if (labelEl) {
+            labelEl.textContent = left + 's';
+            labelEl.className   = 'p-timer-label' + (left <= 10 ? ' urgent' : '');
+        }
+
+        if (left <= 0) {
+            stopPlayerTimer();
+            // Disable buttons if not yet answered
+            if (!state.answered) {
+                document.querySelectorAll('#p-options .option-btn').forEach(b => b.disabled = true);
+                const fb = document.getElementById('p-feedback');
+                if (fb) { fb.className = 'feedback-box wrong-fb'; fb.innerHTML = '<span>⏰</span><span>¡Tiempo agotado!</span>'; }
+            }
+        }
+    }, 500);
+}
+
+function stopPlayerTimer() {
+    if (playerTimerInterval) { clearInterval(playerTimerInterval); playerTimerInterval = null; }
+}
+
+// ——— DICE ROLL ———
 window._playerRoll = async function() {
     if (state.rolling) return;
     state.rolling = true;
@@ -274,14 +321,9 @@ window._playerRoll = async function() {
     await new Promise(resolve => {
         let count = 0;
         if (diceEl) diceEl.classList.add('dice-rolling');
-        const interval = setInterval(() => {
-            if (diceEl) diceEl.textContent = faces[Math.floor(Math.random() * 6)];
-            count++;
-            if (count >= 16) {
-                clearInterval(interval);
-                if (diceEl) diceEl.classList.remove('dice-rolling');
-                resolve();
-            }
+        const iv = setInterval(() => {
+            if (diceEl) diceEl.textContent = faces[Math.floor(Math.random()*6)];
+            if (++count >= 16) { clearInterval(iv); if (diceEl) diceEl.classList.remove('dice-rolling'); resolve(); }
         }, 90);
     });
 
@@ -294,21 +336,32 @@ window._playerRoll = async function() {
         const snap = await get(ref(db, `rooms/${state.roomId}`));
         if (!snap.exists()) { state.rolling = false; return; }
         const roomData = snap.val();
+        const myData   = roomData.players?.[state.playerId] || {};
 
-        if (roomData.phase !== 'dice-ready' || roomData.currentPlayerId !== state.playerId) {
-            state.rolling = false;
-            return;
-        }
+        if (!myData.canRoll || myData.rolled) { state.rolling = false; return; }
 
-        const curPos = roomData.players?.[state.playerId]?.position ?? 0;
+        const curPos = myData.position ?? 0;
         const newPos = Math.min(curPos + dice, BOARD_SIZE);
         const won    = newPos >= BOARD_SIZE;
 
-        await update(ref(db, `rooms/${state.roomId}`), {
-            phase:                          won ? 'finished' : 'dice',
-            diceResult:                     dice,
-            [`players/${state.playerId}/position`]: newPos
-        });
+        const updates = {
+            [`players/${state.playerId}/rolled`]:    true,
+            [`players/${state.playerId}/diceResult`]: dice,
+            [`players/${state.playerId}/position`]:  newPos,
+        };
+
+        // Check if any player has won
+        const allPlayers = Object.values(roomData.players || {});
+        const someoneWon = won || allPlayers.some(p => (p.position || 0) >= BOARD_SIZE);
+        if (won) updates.phase = 'finished';
+
+        await update(ref(db, `rooms/${state.roomId}`), updates);
+
+        if (!won) {
+            // Show success message
+            clearDiceUI();
+            updateWatchStatus(`🎲 Sacaste ${faces[dice-1]} ${dice} — ¡Ahora estás en casilla ${newPos}!`);
+        }
     } catch(err) {
         console.error('Error al lanzar dado:', err);
     }
@@ -330,7 +383,7 @@ function renderMiniBoard(room) {
 
     container.innerHTML = `
         <div class="mini-standings">
-            <div class="mini-title">🏝️ Camino al Oasis</div>
+            <div class="mini-title">🏝️ Camino al Oasis — Meta: ${BOARD_SIZE}</div>
             ${sorted.map((p, r) => {
                 const av   = AVATARS[p.avatarIdx ?? 0];
                 const isMe = p.id === state.playerId;
@@ -361,6 +414,12 @@ function renderQuestion(q) {
     feedback.className = 'feedback-box hidden';
     feedback.innerHTML = '';
 
+    // Reset timer bar
+    const barEl   = document.getElementById('p-timer-bar-inner');
+    const labelEl = document.getElementById('p-timer-label');
+    if (barEl)   { barEl.style.width = '100%'; barEl.style.background = '#10B981'; }
+    if (labelEl) { labelEl.textContent = '--'; labelEl.className = 'p-timer-label'; }
+
     const letters = ['A','B','C','D'];
     const opts    = document.getElementById('p-options');
     opts.innerHTML = (q.options || []).map((o, i) => `
@@ -379,6 +438,7 @@ function renderQuestion(q) {
 async function handleAnswer(idx, q) {
     if (state.answered) return;
     state.answered = true;
+    stopPlayerTimer();
 
     document.querySelectorAll('#p-options .option-btn').forEach((btn, i) => {
         btn.disabled = true;
@@ -396,18 +456,22 @@ async function handleAnswer(idx, q) {
         feedback.innerHTML = `<span>❌</span><span>Incorrecto. Era: ${esc(q.options[q.correct])}</span>`;
     }
 
+    // Auto-grade: write to Firebase immediately
     try {
-        if (state.playerId && state.roomId) {
-            await set(
-                ref(db, `rooms/${state.roomId}/turnAnswers/${state.playerId}`),
-                { answerIdx: idx, isCorrect, timestamp: Date.now() }
-            );
-        }
-    } catch(_) {}
+        await update(ref(db, `rooms/${state.roomId}/players/${state.playerId}`), {
+            answered:     true,
+            answerCorrect: isCorrect,
+            canRoll:      isCorrect,
+            rolled:       false,
+        });
+    } catch(err) {
+        console.error('Error al guardar respuesta:', err);
+    }
 }
 
 // ——— FINAL SCREEN ———
 function showFinalScreen(room) {
+    stopPlayerTimer();
     const players = room.players || {};
     const sorted  = Object.entries(players)
         .map(([id, p]) => ({id, ...p}))
@@ -416,10 +480,10 @@ function showFinalScreen(room) {
     const myData = players[state.playerId];
     const myAv   = AVATARS[state.avatarIdx ?? 0];
     const myRank = sorted.findIndex(p => p.id === state.playerId) + 1;
-    const icons  = ['🥇','🥈','🥉','4️⃣'];
+    const icons  = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣'];
 
     let resultEmoji = '🎉';
-    if (myRank === 1) resultEmoji = '🏝️';
+    if (myRank === 1)      resultEmoji = '🏝️';
     else if (myRank === 2) resultEmoji = '🥈';
     else if (myRank === 3) resultEmoji = '🥉';
 

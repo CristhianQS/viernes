@@ -71,7 +71,8 @@ async function saveQuestion() {
     if (opts.some(o => !o)) { errEl.textContent = 'Completa todas las opciones.'; return; }
     errEl.textContent = '';
 
-    const data = { category, question, options: opts, correct: selectedCorrect };
+    const timeLimit = parseInt(document.getElementById('f-time').value, 10) || 30;
+    const data = { category, question, options: opts, correct: selectedCorrect, timeLimit };
 
     try {
         if (editingId) {
@@ -88,6 +89,7 @@ async function saveQuestion() {
 // ——— Resetear formulario ———
 function resetForm() {
     document.getElementById('f-question').value = '';
+    document.getElementById('f-time').value = '30';
     [0,1,2,3].forEach(i => { document.getElementById(`f-opt${i}`).value = ''; });
     document.querySelectorAll('.correct-opt').forEach(b => b.classList.remove('active'));
     document.querySelector('.correct-opt[data-val="0"]').classList.add('active');
@@ -123,9 +125,10 @@ function renderList(questions) {
                 <div class="q-item-text">${escHtml(q.question)}</div>
                 <div class="q-item-opts">
                     ${(q.options || []).map((o, oi) =>
-                        `<span style="${oi === q.correct ? 'color:#00FF94;font-weight:900' : ''}">${['A','B','C','D'][oi]}) ${escHtml(o)}</span>`
+                        `<span style="${oi === q.correct ? 'color:#16A34A;font-weight:900' : ''}">${['A','B','C','D'][oi]}) ${escHtml(o)}</span>`
                     ).join('  ·  ')}
                 </div>
+                <div class="q-item-time">⏱ ${q.timeLimit || 30}s</div>
             </div>
             <div class="q-item-actions">
                 <button class="btn-icon" onclick="editQuestion('${escAttr(q.id)}')">✏️</button>
@@ -142,6 +145,7 @@ window.editQuestion = async function(id) {
     const q = snap.val();
     document.getElementById('f-category').value = q.category || '';
     document.getElementById('f-question').value  = q.question || '';
+    document.getElementById('f-time').value      = q.timeLimit || 30;
     (q.options || []).forEach((o, i) => {
         const el = document.getElementById(`f-opt${i}`);
         if (el) el.value = o;

@@ -9,20 +9,21 @@ const AVATARS = [
     { emoji: '🐢', name: 'Tortuga',  color: '#4ADE80', grad: 'linear-gradient(135deg,#4ADE80,#16A34A)' },
     { emoji: '🦊', name: 'Zorro',    color: '#FB923C', grad: 'linear-gradient(135deg,#FB923C,#EA580C)' },
     { emoji: '🐻', name: 'Oso',      color: '#D97706', grad: 'linear-gradient(135deg,#D97706,#92400E)' },
-    { emoji: '🦁', name: 'León',     color: '#FDE047', grad: 'linear-gradient(135deg,#FDE047,#F59E0B)' },
+    { emoji: '🦁', name: 'León',     color: '#F59E0B', grad: 'linear-gradient(135deg,#FBBF24,#F59E0B)' },
     { emoji: '🐯', name: 'Tigre',    color: '#F97316', grad: 'linear-gradient(135deg,#F97316,#DC2626)' },
-    { emoji: '🐺', name: 'Lobo',     color: '#94A3B8', grad: 'linear-gradient(135deg,#94A3B8,#475569)' },
-    { emoji: '🐨', name: 'Koala',    color: '#93C5FD', grad: 'linear-gradient(135deg,#93C5FD,#3B82F6)' },
-    { emoji: '🦔', name: 'Erizo',    color: '#C084FC', grad: 'linear-gradient(135deg,#C084FC,#9333EA)' },
-    { emoji: '🦌', name: 'Ciervo',   color: '#A78BFA', grad: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
-    { emoji: '🐿️', name: 'Ardilla',  color: '#F87171', grad: 'linear-gradient(135deg,#F87171,#B91C1C)' },
-    { emoji: '🦝', name: 'Mapache',  color: '#6EE7B7', grad: 'linear-gradient(135deg,#6EE7B7,#059669)' },
+    { emoji: '🐺', name: 'Lobo',     color: '#64748B', grad: 'linear-gradient(135deg,#94A3B8,#475569)' },
+    { emoji: '🐨', name: 'Koala',    color: '#3B82F6', grad: 'linear-gradient(135deg,#93C5FD,#3B82F6)' },
+    { emoji: '🦔', name: 'Erizo',    color: '#9333EA', grad: 'linear-gradient(135deg,#C084FC,#9333EA)' },
+    { emoji: '🦌', name: 'Ciervo',   color: '#7C3AED', grad: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
+    { emoji: '🐿️', name: 'Ardilla',  color: '#DC2626', grad: 'linear-gradient(135deg,#F87171,#B91C1C)' },
+    { emoji: '🦝', name: 'Mapache',  color: '#059669', grad: 'linear-gradient(135deg,#6EE7B7,#059669)' },
 ];
 
 let roomId    = null;
 let allQ      = [];
 let usedQ     = new Set();
 let roomState = {};
+let hostTimerInterval = null;
 
 const esc = s => String(s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
@@ -38,6 +39,15 @@ function getSortedPlayers(roomData) {
     return Object.entries(players)
         .map(([id, p]) => ({id, ...p}))
         .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+}
+
+// Maps square number (1-30) to CSS grid [col, row] (1-indexed)
+function squareToGrid(sq) {
+    if (sq >= 1  && sq <= 10) return [sq,       7];       // Bottom L→R
+    if (sq >= 11 && sq <= 16) return [10,       17-sq];   // Right B→T
+    if (sq >= 17 && sq <= 25) return [26-sq,    1];       // Top R→L
+    if (sq >= 26 && sq <= 30) return [1,        sq-24];   // Left T→B
+    return [1, 7];
 }
 
 // ——— INIT ———
@@ -56,13 +66,11 @@ async function initHost() {
 
     await set(ref(db, `rooms/${roomId}`), {
         phase: 'lobby',
-        currentTurnIndex: 0,
-        currentPlayerId:  null,
         currentQuestion:  null,
-        diceResult:       null,
-        turnResult:       null,
-        started:          false,
-        createdAt:        Date.now()
+        questionStartedAt: null,
+        questionTimeLimit: 30,
+        started: false,
+        createdAt: Date.now()
     });
 
     const loc       = window.location;
@@ -88,10 +96,18 @@ async function initHost() {
         const players = getSortedPlayers(roomState);
 
         updateLobby(players);
+
         if (roomState.phase !== 'lobby') {
             renderBoard(roomState);
             updatePanel(roomState, players);
         }
+
+        if (roomState.phase === 'question') {
+            startHostTimer(roomState.questionStartedAt, roomState.questionTimeLimit || 30);
+        } else {
+            stopHostTimer();
+        }
+
         if (roomState.phase === 'finished') {
             showFinalScreen(roomState);
         }
@@ -109,7 +125,7 @@ function updateLobby(players) {
         ? players.map(p => {
             const av = AVATARS[p.avatarIdx ?? 0];
             return `
-            <div class="lobby-p-item" style="border-color:${av.color}33;background:${av.color}11;">
+            <div class="lobby-p-item" style="border-color:${av.color}55;background:${av.color}0D;">
                 <span class="lpi-emoji">${av.emoji}</span>
                 <div class="lpi-info">
                     <span class="lpi-name" style="color:${av.color};">${esc(p.name)}</span>
@@ -122,16 +138,7 @@ function updateLobby(players) {
 
 async function startGame() {
     document.getElementById('btn-start-game').disabled = true;
-
-    const snap   = await get(ref(db, `rooms/${roomId}`));
-    const sorted = getSortedPlayers(snap.val());
-    const firstId = sorted[0]?.id || null;
-
-    await update(ref(db, `rooms/${roomId}`), {
-        phase: 'idle', started: true,
-        currentTurnIndex: 0, currentPlayerId: firstId
-    });
-
+    await update(ref(db, `rooms/${roomId}`), { phase: 'idle', started: true });
     document.getElementById('host-lobby').classList.remove('active');
     document.getElementById('host-game').classList.add('active');
 }
@@ -146,212 +153,199 @@ function getNextQ() {
 
 // ——— GAME ACTIONS ———
 window._ask = async function() {
-    const q = getNextQ();
-    await update(ref(db, `rooms/${roomId}`), {
-        phase: 'question', currentQuestion: q,
-        diceResult: null, turnResult: null, turnAnswers: null
-    });
-};
-
-window._correct = async function() {
-    await update(ref(db, `rooms/${roomId}`), {
-        phase: 'dice-ready', currentQuestion: null,
-        diceResult: null, turnResult: 'correct'
-    });
-};
-
-window._hostRoll = async function() {
-    const pid    = roomState.currentPlayerId;
-    const dice   = ~~(Math.random() * 6) + 1;
-    const curPos = roomState.players?.[pid]?.position ?? 0;
-    const newPos = Math.min(curPos + dice, BOARD_SIZE);
-    const won    = newPos >= BOARD_SIZE;
-
-    await update(ref(db, `rooms/${roomId}`), {
-        phase: won ? 'finished' : 'dice',
-        diceResult: dice, turnResult: 'correct',
-        [`players/${pid}/position`]: newPos
-    });
-};
-
-window._wrong = async function() {
-    await update(ref(db, `rooms/${roomId}`), {
-        phase: 'wrong', currentQuestion: null,
-        diceResult: null, turnResult: 'wrong'
-    });
+    const q      = getNextQ();
+    const limit  = q.timeLimit || 30;
+    const snap   = await get(ref(db, `rooms/${roomId}/players`));
+    const updates = {
+        phase:             'question',
+        currentQuestion:   q,
+        questionStartedAt: Date.now(),
+        questionTimeLimit: limit,
+    };
+    if (snap.exists()) {
+        Object.keys(snap.val()).forEach(pid => {
+            updates[`players/${pid}/answered`]     = false;
+            updates[`players/${pid}/answerCorrect`] = false;
+            updates[`players/${pid}/canRoll`]       = false;
+            updates[`players/${pid}/rolled`]        = false;
+        });
+    }
+    await update(ref(db, `rooms/${roomId}`), updates);
 };
 
 window._next = async function() {
-    const sorted  = getSortedPlayers(roomState);
-    const curIdx  = roomState.currentTurnIndex ?? 0;
-    const nextIdx = (curIdx + 1) % sorted.length;
-    const nextId  = sorted[nextIdx]?.id || null;
-
+    stopHostTimer();
     await update(ref(db, `rooms/${roomId}`), {
-        phase: 'idle', currentTurnIndex: nextIdx, currentPlayerId: nextId,
-        currentQuestion: null, diceResult: null, turnResult: null, turnAnswers: null
+        phase: 'idle',
+        currentQuestion: null,
+        questionStartedAt: null,
     });
 };
 
 window._end = async function() {
+    stopHostTimer();
     await update(ref(db, `rooms/${roomId}`), { phase: 'finished', currentQuestion: null });
 };
 
-// ——— BOARD RENDERING ———
+// ——— TIMER ———
+function startHostTimer(startedAt, limit) {
+    stopHostTimer();
+    if (!startedAt || !limit) return;
+
+    hostTimerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        const left    = Math.max(0, limit - elapsed);
+        const pct     = (left / limit) * 100;
+
+        const numEl = document.getElementById('bc-timer-num');
+        const barEl = document.getElementById('bc-timer-bar');
+        if (numEl) {
+            numEl.textContent = left + 's';
+            numEl.className   = 'bc-timer-num' + (left <= 10 ? ' urgent' : '');
+        }
+        if (barEl) {
+            barEl.style.width = pct + '%';
+            barEl.style.background = left <= 10 ? '#DC2626' : left <= 20 ? '#FBBF24' : '#10B981';
+        }
+
+        if (left <= 0) {
+            stopHostTimer();
+            if (roomState.phase === 'question') window._next();
+        }
+    }, 500);
+}
+
+function stopHostTimer() {
+    if (hostTimerInterval) { clearInterval(hostTimerInterval); hostTimerInterval = null; }
+}
+
+// ——— PERIMETER BOARD ———
 function renderBoard(roomData) {
     const container = document.getElementById('game-board');
     if (!container) return;
-    const players = roomData.players || {};
 
-    const posMap = {};
-    const startList = [];
+    const players = roomData.players || {};
+    const posMap  = {};
+
     Object.entries(players).forEach(([id, p]) => {
         const pos = p.position || 0;
         const av  = AVATARS[p.avatarIdx ?? 0];
-        if (pos > 0) {
-            (posMap[pos] = posMap[pos] || []).push({id, ...p, av});
-        } else {
-            startList.push({id, ...p, av});
-        }
+        if (pos > 0) (posMap[pos] = posMap[pos] || []).push({id, ...p, av});
     });
 
-    const startEl = document.getElementById('start-tokens');
-    if (startEl) {
-        startEl.innerHTML = startList.map(p =>
-            `<div class="b-token" style="background:${esc(p.av.grad)};box-shadow:0 0 8px ${esc(p.av.color)}90;" title="${esc(p.name)}">${p.av.emoji}</div>`
-        ).join('');
+    let html = '';
+
+    for (let sq = 1; sq <= BOARD_SIZE; sq++) {
+        const [col, row] = squareToGrid(sq);
+        const tokens  = posMap[sq] || [];
+        const isGoal  = sq === BOARD_SIZE;
+        const isMile  = sq % 5 === 0 && !isGoal;
+        let cls = 'perim-sq';
+        if (isGoal)         cls += ' sq-goal';
+        else if (isMile)    cls += ' sq-mile';
+        if (tokens.length)  cls += ' sq-has-player';
+
+        html += `<div class="${cls}" style="grid-column:${col};grid-row:${row};">
+            <div class="sq-num">${isGoal ? '🏝️' : sq}</div>
+            <div class="sq-tokens">
+            ${tokens.map(p => `<div class="b-token" style="background:${esc(p.av.grad)};" title="${esc(p.name)}">${p.av.emoji}</div>`).join('')}
+            </div>
+        </div>`;
     }
 
-    // Snake: top row left→right (21-30), mid row right→left (20-11), bot row left→right (1-10)
-    const rows = [
-        Array.from({length:10}, (_,i) => 21+i),
-        Array.from({length:10}, (_,i) => 20-i),
-        Array.from({length:10}, (_,i) => 1+i),
-    ];
+    // Build center content
+    const phase = roomData.phase;
+    const q     = roomData.currentQuestion;
+    let centerHtml = '';
 
-    const curPid = roomData.currentPlayerId;
-
-    container.innerHTML = rows.map(row => `
-        <div class="board-row">
-        ${row.map(sq => {
-            const tokens = posMap[sq] || [];
-            const isGoal = sq === BOARD_SIZE;
-            const isMile = sq % 5 === 0 && !isGoal;
-            const isHigh = tokens.some(p => p.id === curPid);
-            let cls = 'board-sq';
-            if (isGoal) cls += ' sq-goal';
-            else if (isMile) cls += ' sq-mile';
-            if (isHigh) cls += ' sq-hl';
-            return `
-            <div class="${cls}">
-                <div class="sq-num">${isGoal ? '🏝️' : sq}</div>
-                <div class="sq-tokens">
-                ${tokens.map(p =>
-                    `<div class="b-token" style="background:${esc(p.av.grad)};box-shadow:0 0 6px ${esc(p.av.color)};" title="${esc(p.name)}">${p.av.emoji}</div>`
-                ).join('')}
-                </div>
+    if (phase === 'question' && q) {
+        const pList    = getSortedPlayers(roomData);
+        const statusHtml = pList.map(p => {
+            const av = AVATARS[p.avatarIdx ?? 0];
+            let cls = 'bc-status-token bc-st-pending';
+            let icon = '⏳';
+            if (p.answered) {
+                if (p.answerCorrect) { cls = 'bc-status-token bc-st-correct'; icon = '✅'; }
+                else                 { cls = 'bc-status-token bc-st-wrong';   icon = '❌'; }
+            }
+            return `<div class="${cls}" style="border-color:${av.color}44;">
+                ${icon} <span>${av.emoji}</span>
             </div>`;
-        }).join('')}
-        </div>`
-    ).join('');
+        }).join('');
+
+        const initialLeft = Math.max(0, (roomData.questionTimeLimit || 30));
+        const initialPct  = 100;
+
+        centerHtml = `
+            <div class="board-center-q">
+                <div class="bc-timer-row">
+                    <div class="bc-timer-bar-wrap">
+                        <div class="bc-timer-bar" id="bc-timer-bar" style="width:${initialPct}%;"></div>
+                    </div>
+                    <span class="bc-timer-num" id="bc-timer-num">${initialLeft}s</span>
+                </div>
+                <div class="bc-category">${esc(q.category || '')}</div>
+                <div class="bc-question">${esc(q.question)}</div>
+                <div class="bc-status-grid">${statusHtml}</div>
+            </div>`;
+    } else if (phase === 'idle' || phase === 'lobby') {
+        centerHtml = `
+            <div class="board-center-idle">
+                <div class="bc-idle-emoji">🏝️</div>
+                <div style="font-size:clamp(.8rem,1.8vw,1.1rem);font-weight:900;color:var(--text);">Camino al Oasis</div>
+                <div style="font-size:clamp(.65rem,1.1vw,.82rem);color:var(--text-dim);">Meta: casilla ${BOARD_SIZE} 🏁</div>
+            </div>`;
+    } else if (phase === 'finished') {
+        centerHtml = `
+            <div class="board-center-idle">
+                <div class="bc-idle-emoji">🏆</div>
+                <div style="font-size:clamp(.8rem,1.6vw,1rem);font-weight:900;color:var(--text);">¡Juego Terminado!</div>
+            </div>`;
+    }
+
+    html += `<div class="perim-center">${centerHtml}</div>`;
+    container.innerHTML = html;
 }
 
 // ——— SIDE PANEL ———
 function updatePanel(roomData, players) {
-    const pid   = roomData.currentPlayerId;
     const phase = roomData.phase;
-    const curP  = players.find(p => p.id === pid) || players[0];
-    const av    = AVATARS[curP?.avatarIdx ?? 0];
-
-    const ctEl = document.getElementById('current-team-display');
-    if (ctEl) {
-        const pos = roomData.players?.[pid]?.position ?? 0;
-        ctEl.innerHTML = `
-            <span style="font-size:2.4rem;">${av.emoji}</span>
-            <div>
-                <div style="font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;">Turno actual</div>
-                <div style="font-weight:900;font-size:1.05rem;color:${av.color};">${esc(curP?.name || '?')}</div>
-                <div style="font-size:.72rem;color:var(--text-dim);">Casilla ${pos} / ${BOARD_SIZE}</div>
-            </div>`;
-    }
 
     const ctrl = document.getElementById('panel-controls');
-    if (!ctrl) return;
-    const letters = ['A','B','C','D'];
+    if (ctrl) {
+        if (phase === 'idle' || phase === 'lobby') {
+            ctrl.innerHTML = `
+                <button onclick="window._ask()" class="btn-primary" style="width:100%;font-size:.95rem;padding:.75rem;">
+                    ❓ Mostrar Pregunta
+                </button>
+                <button onclick="window._end()" class="btn-secondary btn-sm" style="margin-top:.5rem;width:100%;">
+                    🏁 Terminar Juego
+                </button>`;
 
-    if (phase === 'idle') {
-        ctrl.innerHTML = `
-            <button onclick="window._ask()" class="btn-primary" style="width:100%;font-size:1rem;padding:.8rem;">
-                ❓ Mostrar Pregunta
-            </button>
-            <button onclick="window._end()" class="btn-secondary btn-sm" style="margin-top:.5rem;width:100%;">
-                🏁 Terminar Juego
-            </button>`;
+        } else if (phase === 'question') {
+            const q         = roomData.currentQuestion;
+            const answered  = players.filter(p => p.answered).length;
+            const correct   = players.filter(p => p.answerCorrect).length;
+            const letters   = ['A','B','C','D'];
 
-    } else if (phase === 'question') {
-        const q = roomData.currentQuestion;
-        const answers = roomData.turnAnswers
-            ? Object.entries(roomData.turnAnswers).filter(([id]) => id === pid)
-            : [];
-        const ansHtml = answers.map(([,a]) => `
-            <div class="ans-row">
-                ${esc(av.emoji)} ${esc(curP?.name)}: <strong>${letters[a.answerIdx] ?? '?'}</strong>
-                ${a.answerIdx === q?.correct
-                    ? '<span style="color:var(--success)">✓</span>'
-                    : '<span style="color:var(--danger)">✗</span>'}
-            </div>`).join('');
-
-        ctrl.innerHTML = `
-            ${q ? `<div class="host-q-card">
-                <div class="hq-cat">${esc(q.category || '')}</div>
-                <div class="hq-text">${esc(q.question)}</div>
-                <div class="hq-opts">
-                ${(q.options||[]).map((o,i) => `
-                    <div class="hq-opt${i===q.correct?' hqo-ok':''}">
-                        <span class="opt-letter">${letters[i]}</span>${esc(o)}
-                    </div>`).join('')}
-                </div>
-                ${ansHtml ? `<div class="ans-list"><div class="ans-title">Respuesta:</div>${ansHtml}</div>` : ''}
-            </div>` : ''}
-            <div style="display:flex;gap:.5rem;margin-top:.5rem;">
-                <button onclick="window._correct()" class="btn-primary" style="flex:1;background:linear-gradient(135deg,#4ADE80,#16A34A);color:#000;font-weight:900;">✓ Correcto</button>
-                <button onclick="window._wrong()" class="btn-secondary btn-sm" style="flex:1;color:var(--danger);border-color:var(--danger);">✗ Incorrecto</button>
-            </div>`;
-
-    } else if (phase === 'dice-ready') {
-        ctrl.innerHTML = `
-            <div style="text-align:center;padding:1rem;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:12px;margin-bottom:.5rem;">
-                <div style="font-size:2.5rem;margin-bottom:.4rem;">🎲</div>
-                <div style="font-weight:900;color:#FBBF24;">✅ ${esc(av.emoji)} ${esc(curP?.name)} respondió bien!</div>
-                <div style="font-size:.8rem;color:var(--text-dim);margin-top:.3rem;">Esperando que lance el dado en su celular…</div>
-            </div>
-            <button onclick="window._hostRoll()" class="btn-secondary btn-sm" style="width:100%;">
-                🎲 Lanzar dado por el jugador
-            </button>`;
-
-    } else if (phase === 'dice') {
-        const pos  = roomData.players?.[pid]?.position ?? 0;
-        const dice = roomData.diceResult;
-        const faces = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
-        ctrl.innerHTML = `
-            <div class="dice-result">
-                <div class="dice-face">${faces[dice] || dice}</div>
-                <div class="dice-text">
-                    <strong>${dice}</strong> — ${esc(av.emoji)} ${esc(curP?.name)}<br>
-                    <span style="font-size:.85rem;color:var(--text-dim);">avanza a casilla <strong>${pos}</strong></span>
-                </div>
-            </div>
-            <button onclick="window._next()" class="btn-primary" style="width:100%;margin-top:.75rem;">▶ Siguiente Turno</button>`;
-
-    } else if (phase === 'wrong') {
-        ctrl.innerHTML = `
-            <div class="wrong-result">
-                <div style="font-size:3rem;">❌</div>
-                <div style="font-weight:700;color:var(--danger);">${esc(av.emoji)} ${esc(curP?.name)}<br>no avanza esta vez</div>
-            </div>
-            <button onclick="window._next()" class="btn-primary" style="width:100%;margin-top:.75rem;">▶ Siguiente Turno</button>`;
+            ctrl.innerHTML = `
+                ${q ? `<div class="host-q-card">
+                    <div class="hq-cat">${esc(q.category || '')}</div>
+                    <div class="hq-text">${esc(q.question)}</div>
+                    <div style="font-size:.72rem;color:var(--text-dim);font-weight:700;margin:.3rem 0;">
+                        ✅ Correcta: <strong>${letters[q.correct]}) ${esc((q.options||[])[q.correct]||'')}</strong>
+                    </div>
+                    <div style="font-size:.75rem;color:var(--text-dim);font-weight:700;">
+                        Respondieron: ${answered}/${players.length} — Correctos: ${correct}
+                    </div>
+                </div>` : ''}
+                <button onclick="window._next()" class="btn-primary" style="width:100%;font-size:.9rem;padding:.7rem;">
+                    ⏭ Siguiente Pregunta
+                </button>`;
+        }
     }
 
+    // Standing in side panel
     renderStandings(roomData, players);
 }
 
@@ -361,13 +355,14 @@ function renderStandings(roomData, players) {
     const sorted = [...players].sort((a,b) => (b.position||0) - (a.position||0));
     const icons  = ['🥇','🥈','🥉'];
     el.innerHTML = sorted.map((p, r) => {
-        const av = AVATARS[p.avatarIdx ?? 0];
+        const av       = AVATARS[p.avatarIdx ?? 0];
+        const canRoll  = p.canRoll && !p.rolled;
         return `
         <div class="standing-row">
             <span class="st-rank">${icons[r] || `${r+1}.`}</span>
             <span style="font-size:1.1rem;">${av.emoji}</span>
-            <span style="flex:1;font-weight:700;font-size:.82rem;color:${av.color};">${esc(p.name)}</span>
-            <span style="font-weight:900;font-size:.82rem;">⬡ ${p.position||0}</span>
+            <span style="flex:1;font-weight:700;font-size:.82rem;color:${av.color};">${esc(p.name)}${canRoll ? ' 🎲' : ''}</span>
+            <span style="font-weight:900;font-size:.82rem;color:var(--text);">⬡ ${p.position||0}</span>
         </div>`;
     }).join('');
 }
@@ -380,11 +375,11 @@ function showFinalScreen(roomData) {
     const sorted   = getSortedPlayers(roomData).sort((a,b) => (b.position||0) - (a.position||0));
     const winner   = sorted[0];
     const winnerAv = AVATARS[winner?.avatarIdx ?? 0];
-    const icons    = ['🥇','🥈','🥉','4️⃣'];
+    const icons    = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣'];
 
     game.innerHTML = `
         <div class="final-screen">
-            <div style="font-size:5rem;margin-bottom:.5rem;">🏝️</div>
+            <div style="font-size:5rem;margin-bottom:.5rem;animation:popIn .5s ease;">🏝️</div>
             <h1 style="font-size:2.8rem;font-weight:900;margin-bottom:.4rem;">¡Llegó al Oasis!</h1>
             <div style="font-size:1.4rem;font-weight:800;color:${winnerAv.color};margin-bottom:2rem;">
                 ${winnerAv.emoji} ${esc(winner?.name)} — Casilla ${winner?.position}
@@ -397,7 +392,7 @@ function showFinalScreen(roomData) {
                         <span style="font-size:1.5rem;min-width:2rem;">${icons[i]||`${i+1}.`}</span>
                         <span style="font-size:1.3rem;">${av.emoji}</span>
                         <span style="flex:1;font-weight:800;font-size:1.1rem;color:${av.color};">${esc(p.name)}</span>
-                        <span style="font-weight:900;">Casilla ${p.position||0} / ${BOARD_SIZE}</span>
+                        <span style="font-weight:900;color:var(--text);">Casilla ${p.position||0} / ${BOARD_SIZE}</span>
                     </div>`;
                 }).join('')}
             </div>

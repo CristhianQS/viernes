@@ -13,37 +13,37 @@
 <div id="admin-login" style="
     position:fixed; inset:0; z-index:999;
     display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(135deg,#0d0221,#1a0533,#0d1b6e);
+    background:linear-gradient(135deg,#FDF6E3,#FEFCE8,#F0FDF4);
     padding:1.5rem;">
     <div style="
-        background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
+        background:#fff; border:1px solid #E8D5B0;
         border-radius:24px; padding:2.5rem 2rem; width:100%; max-width:380px;
-        backdrop-filter:blur(12px); text-align:center;">
+        box-shadow:0 8px 40px rgba(0,0,0,.1); text-align:center;">
         <div style="font-size:3.5rem; margin-bottom:.5rem;">⚙️</div>
-        <h2 style="font-size:1.6rem; font-weight:900; margin-bottom:.3rem;">Panel Admin</h2>
-        <p style="color:rgba(255,255,255,.6); font-size:.88rem; margin-bottom:2rem;">Ingresa tus credenciales para continuar</p>
+        <h2 style="font-size:1.6rem; font-weight:900; margin-bottom:.3rem; color:#1A0E00;">Panel Admin</h2>
+        <p style="color:#8B6E4E; font-size:.88rem; margin-bottom:2rem;">Ingresa tus credenciales para continuar</p>
         <div style="text-align:left; margin-bottom:1rem;">
-            <label style="display:block;font-size:.82rem;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:.4rem;">Usuario</label>
+            <label style="display:block;font-size:.82rem;font-weight:700;color:#8B6E4E;margin-bottom:.4rem;">Usuario</label>
             <input id="login-user" type="text" placeholder="admin" autocomplete="username"
-                style="width:100%;padding:.85rem 1rem;border-radius:10px;border:1.5px solid rgba(255,255,255,.12);
-                       background:rgba(255,255,255,.07);color:#fff;font-family:'Nunito',sans-serif;
+                style="width:100%;padding:.85rem 1rem;border-radius:10px;border:1.5px solid #E8D5B0;
+                       background:#FFFBF5;color:#1A0E00;font-family:'Nunito',sans-serif;
                        font-size:1rem;font-weight:700;outline:none;">
         </div>
         <div style="text-align:left; margin-bottom:1.5rem;">
-            <label style="display:block;font-size:.82rem;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:.4rem;">Contraseña</label>
+            <label style="display:block;font-size:.82rem;font-weight:700;color:#8B6E4E;margin-bottom:.4rem;">Contraseña</label>
             <input id="login-pass" type="password" placeholder="••••••" autocomplete="current-password"
-                style="width:100%;padding:.85rem 1rem;border-radius:10px;border:1.5px solid rgba(255,255,255,.12);
-                       background:rgba(255,255,255,.07);color:#fff;font-family:'Nunito',sans-serif;
+                style="width:100%;padding:.85rem 1rem;border-radius:10px;border:1.5px solid #E8D5B0;
+                       background:#FFFBF5;color:#1A0E00;font-family:'Nunito',sans-serif;
                        font-size:1rem;font-weight:700;outline:none;">
         </div>
         <button id="login-btn"
             style="width:100%;padding:.9rem;border:none;border-radius:12px;
-                   background:linear-gradient(135deg,#FF4ECD,#7B2FFF);color:#fff;
+                   background:linear-gradient(135deg,#F59E0B,#10B981);color:#fff;
                    font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;
                    cursor:pointer;transition:opacity .2s;">
             Ingresar →
         </button>
-        <p id="login-error" style="color:#FF4757;font-size:.82rem;font-weight:700;margin-top:.75rem;min-height:1.2em;"></p>
+        <p id="login-error" style="color:#DC2626;font-size:.82rem;font-weight:700;margin-top:.75rem;min-height:1.2em;"></p>
     </div>
 </div>
 
@@ -99,6 +99,10 @@
                 <label>Opción D</label>
                 <input type="text" id="f-opt3" placeholder="Opción D">
             </div>
+        </div>
+        <div class="form-group">
+            <label>Tiempo límite (segundos)</label>
+            <input type="number" id="f-time" min="10" max="120" value="30" placeholder="30">
         </div>
         <div class="form-group">
             <label>Respuesta correcta</label>

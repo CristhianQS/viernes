@@ -55,18 +55,14 @@
     <div id="host-game" class="host-screen">
         <div class="host-game-layout">
 
-            <!-- Tablero -->
+            <!-- Tablero perímetro -->
             <div class="host-board-wrap">
                 <div class="board-header">
-                    <span style="font-size:1.5rem;">🌵</span>
-                    <h2 style="font-size:1rem; font-weight:900;">Camino al Oasis — Meta: casilla 30 🏝️</h2>
+                    <span style="font-size:1.4rem;">🌵</span>
+                    <h2 style="font-size:.95rem; font-weight:900; color:var(--text);">Camino al Oasis — Meta: casilla 30 🏝️</h2>
                     <span id="room-mini" style="font-size:.75rem; color:var(--text-dim); margin-left:auto;"></span>
                 </div>
-                <div class="start-zone">
-                    <span style="font-size:.75rem; color:var(--text-dim); font-weight:700; white-space:nowrap;">🏁 Inicio:</span>
-                    <div id="start-tokens" style="display:flex; gap:.35rem; flex-wrap:wrap;"></div>
-                </div>
-                <div id="game-board" class="game-board"></div>
+                <div id="game-board" class="perim-board"></div>
             </div>
 
             <!-- Panel lateral -->
@@ -74,11 +70,8 @@
                 <div class="host-qr-small">
                     <div id="qr-small"></div>
                     <div class="host-room-code-small" id="side-room-code">------</div>
-                    <div style="font-size:.7rem; color:#666; font-weight:700;">Escanea para unirte</div>
+                    <div style="font-size:.7rem; color:var(--text-dim); font-weight:700;">Escanea para unirte</div>
                 </div>
-
-                <div id="current-team-display"
-                     style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:.75rem;display:flex;align-items:center;gap:.75rem;"></div>
 
                 <div id="panel-controls"
                      style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:.8rem;"></div>

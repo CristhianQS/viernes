@@ -38,7 +38,7 @@
     <div id="p-avatar" class="p-screen">
         <div class="p-center-wrap">
             <div class="p-avatar-card">
-                <h2 style="font-size:1.9rem; font-weight:900; margin-bottom:.3rem;">
+                <h2 style="font-size:1.9rem; font-weight:900; margin-bottom:.3rem; color:var(--text);">
                     Elige tu <span class="highlight">Animal</span>
                 </h2>
                 <p style="color:var(--text-dim); font-size:.9rem; margin-bottom:1.4rem;">
@@ -78,9 +78,17 @@
             <div class="question-header">
                 <div class="player-info">
                     <span id="p-team-hdr" class="hdr-char"></span>
-                    <span style="font-size:.82rem; font-weight:800;">¡Tu turno!</span>
+                    <span style="font-size:.82rem; font-weight:800; color:var(--text);">¡Responde!</span>
                 </div>
                 <div class="q-counter">🎲 Si aciertas, lanzas el dado</div>
+            </div>
+
+            <!-- Timer bar -->
+            <div class="p-timer-row">
+                <div class="p-timer-bar-outer">
+                    <div class="p-timer-bar-inner" id="p-timer-bar-inner"></div>
+                </div>
+                <span class="p-timer-label" id="p-timer-label">--</span>
             </div>
 
             <div class="question-card">
@@ -98,7 +106,7 @@
         <div class="p-center-wrap">
             <div class="p-done-card">
                 <div id="p-final-emoji" style="font-size:5rem; animation: popIn .5s ease;"></div>
-                <h2 style="font-size:2rem; font-weight:900;">¡Juego Terminado!</h2>
+                <h2 style="font-size:2rem; font-weight:900; color:var(--text);">¡Juego Terminado!</h2>
                 <div id="p-final-team" style="font-size:1.1rem; font-weight:800; margin-bottom:1rem;"></div>
                 <div id="p-final-board" style="width:100%;"></div>
             </div>

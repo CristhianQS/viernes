@@ -2,18 +2,27 @@ import { db } from './config.js';
 import { ref, set, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const BOARD_SIZE = 30;
-const TEAMS = [
-    { name: 'Equipo Rojo',     color: '#FF4757', grad: 'linear-gradient(135deg,#FF4757,#FF8C00)', emoji: '🔴' },
-    { name: 'Equipo Azul',     color: '#4FC3F7', grad: 'linear-gradient(135deg,#4FC3F7,#1A6FCF)', emoji: '🔵' },
-    { name: 'Equipo Verde',    color: '#00E676', grad: 'linear-gradient(135deg,#00E676,#00897B)', emoji: '🟢' },
-    { name: 'Equipo Amarillo', color: '#FFD740', grad: 'linear-gradient(135deg,#FFD740,#E65100)', emoji: '🟡' },
+
+const AVATARS = [
+    { emoji: '🐰', name: 'Conejo',   color: '#FF69B4', grad: 'linear-gradient(135deg,#FF69B4,#C71585)' },
+    { emoji: '🐢', name: 'Tortuga',  color: '#4ADE80', grad: 'linear-gradient(135deg,#4ADE80,#16A34A)' },
+    { emoji: '🦊', name: 'Zorro',    color: '#FB923C', grad: 'linear-gradient(135deg,#FB923C,#EA580C)' },
+    { emoji: '🐻', name: 'Oso',      color: '#D97706', grad: 'linear-gradient(135deg,#D97706,#92400E)' },
+    { emoji: '🦁', name: 'León',     color: '#FDE047', grad: 'linear-gradient(135deg,#FDE047,#F59E0B)' },
+    { emoji: '🐯', name: 'Tigre',    color: '#F97316', grad: 'linear-gradient(135deg,#F97316,#DC2626)' },
+    { emoji: '🐺', name: 'Lobo',     color: '#94A3B8', grad: 'linear-gradient(135deg,#94A3B8,#475569)' },
+    { emoji: '🐨', name: 'Koala',    color: '#93C5FD', grad: 'linear-gradient(135deg,#93C5FD,#3B82F6)' },
+    { emoji: '🦔', name: 'Erizo',    color: '#C084FC', grad: 'linear-gradient(135deg,#C084FC,#9333EA)' },
+    { emoji: '🦌', name: 'Ciervo',   color: '#A78BFA', grad: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
+    { emoji: '🐿️', name: 'Ardilla',  color: '#F87171', grad: 'linear-gradient(135deg,#F87171,#B91C1C)' },
+    { emoji: '🦝', name: 'Mapache',  color: '#6EE7B7', grad: 'linear-gradient(135deg,#6EE7B7,#059669)' },
 ];
 
 const state = {
     roomId:    null,
     playerId:  null,
     name:      '',
-    teamIndex: null,
+    avatarIdx: null,
     answered:  false,
     rolling:   false,
 };
@@ -45,7 +54,7 @@ function init() {
     }
 
     state.roomId = room.toUpperCase();
-    document.getElementById('p-room-badge').textContent = '🎲 Sala: ' + state.roomId;
+    document.getElementById('p-room-badge').textContent = '🏝️ Sala: ' + state.roomId;
     showScreen('p-join');
 
     document.getElementById('btn-join-next').addEventListener('click', handleJoin);
@@ -54,7 +63,7 @@ function init() {
     });
 }
 
-// ——— JOIN ———
+// ——— JOIN (nombre) ———
 function handleJoin() {
     const nameEl = document.getElementById('p-name');
     const name   = nameEl.value.trim();
@@ -65,58 +74,57 @@ function handleJoin() {
     }
     state.name = name;
     showErr('join-error', '');
-    buildTeamScreen();
-    showScreen('p-team');
+    buildAvatarScreen();
+    showScreen('p-avatar');
 }
 
-// ——— TEAM SELECTION ———
-function buildTeamScreen() {
-    const grid = document.getElementById('team-grid');
-    grid.innerHTML = TEAMS.map((t, i) => `
-        <div class="team-card" data-ti="${i}" style="--tc:${t.color};--tg:${t.grad};">
-            <div class="tc-emoji">${t.emoji}</div>
-            <div class="tc-name" style="color:${t.color};">${esc(t.name)}</div>
+// ——— AVATAR SELECTION ———
+function buildAvatarScreen() {
+    const grid = document.getElementById('avatar-grid');
+    grid.innerHTML = AVATARS.map((av, i) => `
+        <div class="avatar-card" data-idx="${i}" style="--av-color:${av.color};">
+            <div class="av-emoji">${av.emoji}</div>
+            <div class="av-name" style="color:${av.color};">${esc(av.name)}</div>
         </div>`).join('');
 
-    grid.querySelectorAll('.team-card').forEach(card => {
+    grid.querySelectorAll('.avatar-card').forEach(card => {
         card.addEventListener('click', () => {
-            grid.querySelectorAll('.team-card').forEach(c => c.classList.remove('selected'));
+            grid.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
-            state.teamIndex = parseInt(card.dataset.ti, 10);
-            document.getElementById('btn-team-join').disabled = false;
-            showErr('team-error', '');
+            state.avatarIdx = parseInt(card.dataset.idx, 10);
+            document.getElementById('btn-avatar-join').disabled = false;
+            showErr('avatar-error', '');
         });
     });
 
-    document.getElementById('btn-team-join').addEventListener('click', handleTeamJoin);
+    document.getElementById('btn-avatar-join').addEventListener('click', handleAvatarJoin);
 }
 
-async function handleTeamJoin() {
-    if (state.teamIndex === null) {
-        showErr('team-error', 'Elige un equipo primero.');
+async function handleAvatarJoin() {
+    if (state.avatarIdx === null) {
+        showErr('avatar-error', 'Elige tu animal primero.');
         return;
     }
-    const btn = document.getElementById('btn-team-join');
+    const btn = document.getElementById('btn-avatar-join');
     btn.disabled = true;
-    btn.textContent = 'Uniéndose...';
+    btn.textContent = 'Uniéndose…';
 
     try {
-        // Verify room exists
         const snap = await get(ref(db, `rooms/${state.roomId}`));
         if (!snap.exists()) {
-            showErr('team-error', 'Sala no encontrada.');
+            showErr('avatar-error', 'Sala no encontrada.');
             btn.disabled = false;
-            btn.textContent = '¡Unirse al Equipo!';
+            btn.textContent = '¡Unirse! 🏝️';
             return;
         }
 
-        // Register player
         const playerRef = push(ref(db, `rooms/${state.roomId}/players`));
         state.playerId  = playerRef.key;
 
         await set(playerRef, {
             name:      state.name,
-            teamIndex: state.teamIndex,
+            avatarIdx: state.avatarIdx,
+            position:  0,
             joinedAt:  Date.now()
         });
 
@@ -125,22 +133,25 @@ async function handleTeamJoin() {
         listenToRoom();
 
     } catch (err) {
-        showErr('team-error', 'Error de conexión: ' + err.message);
+        showErr('avatar-error', 'Error de conexión: ' + err.message);
         btn.disabled = false;
-        btn.textContent = '¡Unirse al Equipo!';
+        btn.textContent = '¡Unirse! 🏝️';
     }
 }
 
-// ——— WAITING / WATCHING SCREEN ———
+// ——— WAITING SCREEN ———
 function setupWaitingScreen() {
-    const team = TEAMS[state.teamIndex];
-    const el   = document.getElementById('my-team-display');
+    const av = AVATARS[state.avatarIdx];
+    const el = document.getElementById('my-player-display');
     if (el) {
         el.innerHTML = `
-            <div class="my-team-badge" style="background:${team.grad};border-color:${team.color};">
-                ${team.emoji} ${esc(team.name)}
-            </div>
-            <div style="font-size:.85rem;color:var(--text-dim);">👤 ${esc(state.name)}</div>`;
+            <div class="my-avatar-badge" style="background:${av.grad};">
+                <span class="mab-emoji">${av.emoji}</span>
+                <div class="mab-info">
+                    <div class="mab-name">${esc(state.name)}</div>
+                    <div class="mab-av">${esc(av.name)}</div>
+                </div>
+            </div>`;
     }
 }
 
@@ -148,14 +159,16 @@ function setupWaitingScreen() {
 function listenToRoom() {
     onValue(ref(db, `rooms/${state.roomId}`), snap => {
         if (!snap.exists()) return;
-        const room  = snap.val();
-        const phase = room.phase;
-        const cti   = room.currentTeamIndex ?? 0;
-        const myTurn = state.teamIndex === cti;
+        const room   = snap.val();
+        const phase  = room.phase;
+        const pid    = room.currentPlayerId;
+        const myTurn = state.playerId === pid;
+        const curP   = room.players?.[pid];
+        const curAv  = AVATARS[curP?.avatarIdx ?? 0];
 
         if (phase === 'lobby') {
             showScreen('p-wait');
-            updateWatchScreen(room, 'Esperando que el host inicie el juego...');
+            updateWatchScreen(room, 'Esperando que el host inicie el juego… 🌵');
             return;
         }
 
@@ -166,10 +179,9 @@ function listenToRoom() {
 
         if (phase === 'idle') {
             showScreen('p-wait');
-            const team = TEAMS[cti];
             updateWatchScreen(room, myTurn
-                ? `✨ ¡Es el turno de tu equipo! Espera la pregunta...`
-                : `Turno de ${team.emoji} ${team.name}`);
+                ? `✨ ¡Es tu turno! El host te enviará la pregunta…`
+                : `Turno de ${curAv.emoji} ${esc(curP?.name || '?')}`);
             return;
         }
 
@@ -177,12 +189,11 @@ function listenToRoom() {
             if (myTurn && room.currentQuestion) {
                 showScreen('p-question');
                 const hdr = document.getElementById('p-team-hdr');
-                if (hdr) hdr.textContent = TEAMS[state.teamIndex]?.emoji || '';
+                if (hdr) hdr.textContent = AVATARS[state.avatarIdx]?.emoji || '';
                 renderQuestion(room.currentQuestion);
             } else {
                 showScreen('p-wait');
-                const team = TEAMS[cti];
-                updateWatchScreen(room, `${team.emoji} ${team.name} está respondiendo...`);
+                updateWatchScreen(room, `${curAv.emoji} ${esc(curP?.name)} está respondiendo…`);
             }
             return;
         }
@@ -192,33 +203,28 @@ function listenToRoom() {
             if (myTurn) {
                 showDiceRollUI(room);
             } else {
-                const team = TEAMS[cti];
-                updateWatchScreen(room, `🎲 ${team.emoji} ${team.name} va a lanzar el dado…`);
+                updateWatchScreen(room, `🎲 ${curAv.emoji} ${esc(curP?.name)} va a lanzar el dado…`);
             }
             return;
         }
 
         if (phase === 'dice') {
             showScreen('p-wait');
-            const team  = TEAMS[cti];
             const faces = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
             const dice  = room.diceResult || 0;
-            const pos   = room.teams?.[cti]?.position ?? 0;
-            updateWatchScreen(room,
-                myTurn
-                    ? `🎲 Tu equipo sacó ${faces[dice]} ${dice} — ¡Casilla ${pos}!`
-                    : `🎲 ${team.emoji} ${team.name} sacó ${faces[dice]} ${dice} — Casilla ${pos}`
+            const pos   = room.players?.[pid]?.position ?? 0;
+            updateWatchScreen(room, myTurn
+                ? `🎲 Sacaste ${faces[dice]} ${dice} — ¡Estás en casilla ${pos}!`
+                : `🎲 ${curAv.emoji} ${esc(curP?.name)} sacó ${faces[dice]} ${dice} — Casilla ${pos}`
             );
             return;
         }
 
         if (phase === 'wrong') {
             showScreen('p-wait');
-            const team = TEAMS[cti];
-            updateWatchScreen(room,
-                myTurn
-                    ? `❌ Esta vez no avanzamos. ¡Suerte en el próximo turno!`
-                    : `❌ ${team.emoji} ${team.name} no avanzó`
+            updateWatchScreen(room, myTurn
+                ? `❌ Esta vez no avanzas. ¡Suerte en el próximo turno!`
+                : `❌ ${curAv.emoji} ${esc(curP?.name)} no avanzó`
             );
             return;
         }
@@ -228,23 +234,24 @@ function listenToRoom() {
 function updateWatchScreen(room, statusMsg) {
     const statusEl = document.getElementById('watch-status');
     if (statusEl) statusEl.textContent = statusMsg;
-    // Limpiar UI del dado si estamos en otra fase
     const diceUiEl = document.getElementById('dice-ui');
     if (diceUiEl) diceUiEl.innerHTML = '';
     renderMiniBoard(room);
 }
 
 function showDiceRollUI(room) {
-    const cti  = room.currentTeamIndex ?? 0;
-    const team = TEAMS[cti];
+    const av = AVATARS[state.avatarIdx];
 
     const statusEl = document.getElementById('watch-status');
-    if (statusEl) statusEl.textContent = `✅ ¡${team.name} respondió bien!`;
+    if (statusEl) statusEl.textContent = `✅ ¡Respondiste bien, ${esc(state.name)}!`;
 
     const diceUiEl = document.getElementById('dice-ui');
     if (diceUiEl) {
         diceUiEl.innerHTML = `
             <div class="dice-roll-box">
+                <div style="font-size:.9rem;color:var(--text-dim);font-weight:700;margin-bottom:.5rem;">
+                    Lanza el dado y avanza
+                </div>
                 <div id="dice-display" class="dice-big-face">🎲</div>
                 <button id="btn-roll-dice" class="btn-roll" onclick="window._playerRoll()">
                     🎲 ¡Lanzar Dado!
@@ -264,48 +271,43 @@ window._playerRoll = async function() {
 
     const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 
-    // Animación del dado girando
     await new Promise(resolve => {
         let count = 0;
         if (diceEl) diceEl.classList.add('dice-rolling');
         const interval = setInterval(() => {
             if (diceEl) diceEl.textContent = faces[Math.floor(Math.random() * 6)];
             count++;
-            if (count >= 14) {
+            if (count >= 16) {
                 clearInterval(interval);
                 if (diceEl) diceEl.classList.remove('dice-rolling');
                 resolve();
             }
-        }, 100);
+        }, 90);
     });
 
-    // Número final del dado
     const dice = Math.floor(Math.random() * 6) + 1;
     if (diceEl) diceEl.textContent = faces[dice - 1];
 
-    // Pequeña pausa para que vean el resultado
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 600));
 
     try {
         const snap = await get(ref(db, `rooms/${state.roomId}`));
         if (!snap.exists()) { state.rolling = false; return; }
         const roomData = snap.val();
-        const ti = roomData.currentTeamIndex ?? 0;
 
-        // Verificar que aún es fase dice-ready y nuestro turno
-        if (roomData.phase !== 'dice-ready' || ti !== state.teamIndex) {
+        if (roomData.phase !== 'dice-ready' || roomData.currentPlayerId !== state.playerId) {
             state.rolling = false;
             return;
         }
 
-        const curPos = roomData.teams?.[ti]?.position ?? 0;
+        const curPos = roomData.players?.[state.playerId]?.position ?? 0;
         const newPos = Math.min(curPos + dice, BOARD_SIZE);
         const won    = newPos >= BOARD_SIZE;
 
         await update(ref(db, `rooms/${state.roomId}`), {
-            phase:                    won ? 'finished' : 'dice',
-            diceResult:               dice,
-            [`teams/${ti}/position`]: newPos
+            phase:                          won ? 'finished' : 'dice',
+            diceResult:                     dice,
+            [`players/${state.playerId}/position`]: newPos
         });
     } catch(err) {
         console.error('Error al lanzar dado:', err);
@@ -318,28 +320,32 @@ window._playerRoll = async function() {
 function renderMiniBoard(room) {
     const container = document.getElementById('mini-board');
     if (!container) return;
-    const teams = room.teams || {};
+    const players = room.players || {};
 
-    const posMap = {};
-    Object.entries(teams).forEach(([ti, t]) => {
-        const pos = t.position || 0;
-        (posMap[pos] = posMap[pos] || []).push({ti:+ti,...t});
-    });
+    const sorted = Object.entries(players)
+        .map(([id, p]) => ({id, ...p}))
+        .sort((a, b) => (b.position||0) - (a.position||0));
 
-    const standings = Object.entries(teams)
-        .map(([i,t]) => ({i:+i,...t}))
-        .sort((a,b) => (b.position||0) - (a.position||0));
+    const icons = ['🥇','🥈','🥉'];
 
     container.innerHTML = `
         <div class="mini-standings">
-            ${standings.map((t, r) => {
-                const isMe = t.i === state.teamIndex;
+            <div class="mini-title">🏝️ Camino al Oasis</div>
+            ${sorted.map((p, r) => {
+                const av   = AVATARS[p.avatarIdx ?? 0];
+                const isMe = p.id === state.playerId;
+                const pct  = Math.round((p.position||0) / BOARD_SIZE * 100);
                 return `
-                <div class="mini-st-row${isMe ? ' mini-me' : ''}" style="border-color:${isMe ? t.color : 'transparent'}">
-                    <span>${['🥇','🥈','🥉','4.'][r] || `${r+1}.`}</span>
-                    <span>${t.emoji}</span>
-                    <span style="flex:1;color:${t.color};font-weight:${isMe?900:700};">${esc(t.name)}${isMe ? ' (tú)' : ''}</span>
-                    <span>⬡ ${t.position||0}</span>
+                <div class="mini-st-row${isMe ? ' mini-me' : ''}" style="${isMe ? `border-color:${av.color};` : ''}">
+                    <span class="ms-rank">${icons[r] || `${r+1}.`}</span>
+                    <span class="ms-emoji">${av.emoji}</span>
+                    <div class="ms-info">
+                        <div class="ms-name" style="color:${av.color};">${esc(p.name)}${isMe ? ' ✦' : ''}</div>
+                        <div class="ms-bar-wrap">
+                            <div class="ms-bar" style="width:${pct}%;background:${av.color};"></div>
+                        </div>
+                    </div>
+                    <span class="ms-pos">⬡ ${p.position||0}</span>
                 </div>`;
             }).join('')}
         </div>`;
@@ -348,7 +354,6 @@ function renderMiniBoard(room) {
 // ——— QUESTION SCREEN ———
 function renderQuestion(q) {
     state.answered = false;
-
     document.getElementById('p-q-category').textContent = q.category || '';
     document.getElementById('p-q-text').textContent     = q.question || '';
 
@@ -375,25 +380,22 @@ async function handleAnswer(idx, q) {
     if (state.answered) return;
     state.answered = true;
 
-    // Disable all buttons
     document.querySelectorAll('#p-options .option-btn').forEach((btn, i) => {
         btn.disabled = true;
         if (i === q.correct) btn.classList.add('correct');
         if (i === idx && idx !== q.correct) btn.classList.add('wrong');
     });
 
-    // Show feedback
     const isCorrect = idx === q.correct;
     const feedback  = document.getElementById('p-feedback');
     if (isCorrect) {
         feedback.className = 'feedback-box correct-fb';
-        feedback.innerHTML = '<span>✅</span><span>¡Correcta! El host decidirá si avanzar.</span>';
+        feedback.innerHTML = '<span>✅</span><span>¡Correcto! Prepárate para lanzar el dado…</span>';
     } else {
         feedback.className = 'feedback-box wrong-fb';
         feedback.innerHTML = `<span>❌</span><span>Incorrecto. Era: ${esc(q.options[q.correct])}</span>`;
     }
 
-    // Send to Firebase
     try {
         if (state.playerId && state.roomId) {
             await set(
@@ -406,31 +408,42 @@ async function handleAnswer(idx, q) {
 
 // ——— FINAL SCREEN ———
 function showFinalScreen(room) {
-    const teams  = room.teams || {};
-    const sorted = Object.values(teams).sort((a,b) => (b.position||0) - (a.position||0));
-    const myTeam = TEAMS[state.teamIndex];
+    const players = room.players || {};
+    const sorted  = Object.entries(players)
+        .map(([id, p]) => ({id, ...p}))
+        .sort((a, b) => (b.position||0) - (a.position||0));
+
+    const myData = players[state.playerId];
+    const myAv   = AVATARS[state.avatarIdx ?? 0];
+    const myRank = sorted.findIndex(p => p.id === state.playerId) + 1;
     const icons  = ['🥇','🥈','🥉','4️⃣'];
 
-    // Find my team's rank
-    const myRank = sorted.findIndex(t => t.emoji === myTeam.emoji) + 1;
     let resultEmoji = '🎉';
-    if (myRank === 1) resultEmoji = '🏆';
+    if (myRank === 1) resultEmoji = '🏝️';
     else if (myRank === 2) resultEmoji = '🥈';
     else if (myRank === 3) resultEmoji = '🥉';
 
-    document.getElementById('p-final-emoji').textContent  = resultEmoji;
-    document.getElementById('p-final-team').textContent   = `${myTeam.emoji} ${myTeam.name} — Casilla ${sorted.find(t=>t.emoji===myTeam.emoji)?.position || 0}`;
-    document.getElementById('p-final-team').style.color   = myTeam.color;
+    document.getElementById('p-final-emoji').textContent = resultEmoji;
+    document.getElementById('p-final-team').textContent  =
+        `${myAv.emoji} ${state.name} — Casilla ${myData?.position || 0} / ${BOARD_SIZE}`;
+    document.getElementById('p-final-team').style.color = myAv.color;
 
     const board = document.getElementById('p-final-board');
     if (board) {
-        board.innerHTML = sorted.map((t, i) => `
-            <div class="final-item${t.emoji === myTeam.emoji ? ' final-me' : ''}">
-                <span class="fi-rank">${icons[i] || `${i+1}.`}</span>
-                <span class="fi-emoji">${t.emoji}</span>
-                <span class="fi-name" style="color:${t.color};">${esc(t.name)}</span>
-                <span class="fi-score">⬡ ${t.position||0}</span>
-            </div>`).join('');
+        board.innerHTML = `
+            <div class="mini-standings">
+            ${sorted.map((p, i) => {
+                const av   = AVATARS[p.avatarIdx ?? 0];
+                const isMe = p.id === state.playerId;
+                return `
+                <div class="final-item${isMe ? ' final-me' : ''}">
+                    <span class="fi-rank">${icons[i] || `${i+1}.`}</span>
+                    <span class="fi-emoji">${av.emoji}</span>
+                    <span class="fi-name" style="color:${av.color};">${esc(p.name)}</span>
+                    <span class="fi-score">⬡ ${p.position||0}</span>
+                </div>`;
+            }).join('')}
+            </div>`;
     }
 
     showScreen('p-done');

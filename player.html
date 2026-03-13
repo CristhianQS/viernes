@@ -3,67 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🎲 Quiz Tablero - Jugador</title>
+    <title>🏝️ Camino al Oasis</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
-    <!-- ===== PANTALLA 1: UNIRSE ===== -->
+    <!-- ===== PANTALLA 1: NOMBRE ===== -->
     <div id="p-join" class="p-screen active">
-        <div class="p-join-content">
-            <span style="font-size:4rem; display:block; margin-bottom:0.5rem; animation: float 3s ease-in-out infinite;">🎲</span>
-            <h1 class="game-title" style="font-size:2.4rem; margin-bottom:0.4rem;">Quiz <span>Tablero</span></h1>
-            <p style="color:var(--text-dim); font-size:0.9rem; margin-bottom:1.5rem;">Quiz multijugador por equipos</p>
+        <div class="p-center-wrap">
+            <div class="p-join-card">
+                <span class="p-hero-icon">🏝️</span>
+                <h1 class="game-title" style="font-size:2.2rem; margin-bottom:.3rem;">
+                    Camino al <span>Oasis</span>
+                </h1>
+                <p style="color:var(--text-dim); font-size:.9rem; margin-bottom:1.5rem;">
+                    Quiz de animales 🐾
+                </p>
 
-            <div class="p-room-badge" id="p-room-badge">Sala: ------</div>
+                <div class="p-room-badge" id="p-room-badge">🏝️ Sala: ------</div>
 
-            <div class="input-card" style="width:100%; margin-top:1rem;">
-                <label for="p-name">¿Cómo te llamas?</label>
-                <input type="text" id="p-name" placeholder="Tu nombre aquí..." maxlength="20" autocomplete="off">
-                <button id="btn-join-next" class="btn-primary">Siguiente →</button>
+                <div class="input-card" style="margin-top:1rem;">
+                    <label for="p-name">¿Cómo te llamas?</label>
+                    <input type="text" id="p-name" placeholder="Tu nombre…" maxlength="20" autocomplete="off">
+                    <button id="btn-join-next" class="btn-primary">Elegir animal →</button>
+                </div>
+                <p id="join-error" class="err-msg"></p>
             </div>
-            <p id="join-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.75rem; font-weight:700; min-height:1.2em;"></p>
         </div>
     </div>
 
-    <!-- ===== PANTALLA 2: ELEGIR EQUIPO ===== -->
-    <div id="p-team" class="p-screen">
-        <div class="p-join-content">
-            <h2 style="font-size:2rem; font-weight:900; margin-bottom:0.35rem;">Elige tu <span class="highlight">Equipo</span></h2>
-            <p style="color:var(--text-dim); margin-bottom:1.5rem;">Selecciona el equipo en el que jugarás</p>
-            <div id="team-grid" class="team-grid"></div>
-            <button id="btn-team-join" class="btn-primary" disabled style="margin-top:1.2rem; max-width:300px;">¡Unirse al Equipo! 🎲</button>
-            <p id="team-error" style="color:var(--danger); font-size:0.85rem; margin-top:0.6rem; font-weight:700; min-height:1.2em;"></p>
+    <!-- ===== PANTALLA 2: AVATAR ===== -->
+    <div id="p-avatar" class="p-screen">
+        <div class="p-center-wrap">
+            <div class="p-avatar-card">
+                <h2 style="font-size:1.9rem; font-weight:900; margin-bottom:.3rem;">
+                    Elige tu <span class="highlight">Animal</span>
+                </h2>
+                <p style="color:var(--text-dim); font-size:.9rem; margin-bottom:1.4rem;">
+                    ¿Quién cruzará el desierto?
+                </p>
+                <div id="avatar-grid" class="avatar-grid"></div>
+                <button id="btn-avatar-join" class="btn-primary" disabled style="margin-top:1.2rem;">
+                    ¡Unirse! 🏝️
+                </button>
+                <p id="avatar-error" class="err-msg"></p>
+            </div>
         </div>
     </div>
 
-    <!-- ===== PANTALLA 3: ESPERAR / VER TABLERO ===== -->
+    <!-- ===== PANTALLA 3: ESPERAR / TABLERO ===== -->
     <div id="p-wait" class="p-screen">
-        <div class="p-wait-content">
-            <div id="my-team-display" style="margin-bottom:0.75rem;"></div>
-            <div id="watch-status" class="watch-status-text">Esperando...</div>
-            <!-- Zona del dado (visible cuando es el turno del equipo y fase dice-ready) -->
-            <div id="dice-ui" style="width:100%; max-width:320px;"></div>
-            <div id="mini-board" class="mini-board-wrap"></div>
+        <div class="p-wait-layout">
+
+            <!-- Cabecera del jugador -->
+            <div id="my-player-display" style="padding:1rem 1rem .5rem; text-align:center;"></div>
+
+            <!-- Estado del juego -->
+            <div id="watch-status" class="watch-status-text">Esperando… 🌵</div>
+
+            <!-- Zona del dado (solo cuando toca lanzar) -->
+            <div id="dice-ui" style="padding:0 1rem;"></div>
+
+            <!-- Clasificación mini -->
+            <div id="mini-board" style="padding:.5rem 1rem 1.5rem; flex:1; overflow-y:auto;"></div>
+
         </div>
     </div>
 
     <!-- ===== PANTALLA 4: PREGUNTA ===== -->
     <div id="p-question" class="p-screen">
         <div class="p-quiz-content">
-            <div class="question-header" style="flex-shrink:0;">
+            <div class="question-header">
                 <div class="player-info">
                     <span id="p-team-hdr" class="hdr-char"></span>
-                    <span style="font-weight:800; font-size:0.88rem;">¡Responde!</span>
+                    <span style="font-size:.82rem; font-weight:800;">¡Tu turno!</span>
                 </div>
                 <div class="q-counter">🎲 Si aciertas, lanzas el dado</div>
             </div>
 
             <div class="question-card">
-                <div id="p-q-category" class="q-category">Categoría</div>
-                <p id="p-q-text" class="q-text">Pregunta...</p>
+                <div id="p-q-category" class="q-category"></div>
+                <p id="p-q-text" class="q-text">Cargando pregunta…</p>
             </div>
 
             <div id="p-options" class="options-grid"></div>
@@ -73,11 +95,13 @@
 
     <!-- ===== PANTALLA 5: FIN ===== -->
     <div id="p-done" class="p-screen">
-        <div class="p-done-content">
-            <div id="p-final-emoji" style="font-size:5rem; animation: popIn 0.5s ease;"></div>
-            <h2 style="font-size:2rem; font-weight:900;">¡Juego Terminado!</h2>
-            <div id="p-final-team" style="font-size:1.1rem; font-weight:800; margin-bottom:0.5rem;"></div>
-            <div id="p-final-board" style="width:100%;"></div>
+        <div class="p-center-wrap">
+            <div class="p-done-card">
+                <div id="p-final-emoji" style="font-size:5rem; animation: popIn .5s ease;"></div>
+                <h2 style="font-size:2rem; font-weight:900;">¡Juego Terminado!</h2>
+                <div id="p-final-team" style="font-size:1.1rem; font-weight:800; margin-bottom:1rem;"></div>
+                <div id="p-final-board" style="width:100%;"></div>
+            </div>
         </div>
     </div>
 

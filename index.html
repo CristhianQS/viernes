@@ -3,85 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎲 Quiz Tablero - Host</title>
+    <title>🏝️ Camino al Oasis — Host</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
-    <!-- ===== PANTALLA HOST: LOBBY ===== -->
+    <!-- ===== LOBBY ===== -->
     <div id="host-lobby" class="host-screen active">
         <div class="host-lobby-layout">
+
             <div class="lobby-left">
-                <span style="font-size:3.5rem; display:block; margin-bottom:0.5rem; animation: float 3s ease-in-out infinite;">🎲</span>
-                <h1 class="game-title" style="font-size:2.8rem; margin-bottom:0.5rem;">Quiz <span>Tablero</span></h1>
-                <p style="color:var(--text-dim); margin-bottom:1rem;">Escanea el QR con tu celular para unirte</p>
+                <span style="font-size:4rem; display:block; margin-bottom:0.5rem; animation: float 3s ease-in-out infinite;">🏝️</span>
+                <h1 class="game-title" style="font-size:2.8rem; margin-bottom:0.3rem;">
+                    Camino al <span>Oasis</span>
+                </h1>
+                <p style="color:var(--text-dim); font-size:.9rem; margin-bottom:1.2rem;">
+                    Responde, lanza el dado y llega al oasis 🌴
+                </p>
                 <div class="qr-box">
                     <div id="qr-code"></div>
                 </div>
                 <div class="room-code-display" id="room-code-text">------</div>
-                <p style="color:var(--text-dim); font-size:0.8rem; margin-top:0.5rem;" id="join-url"></p>
-                <div style="display:flex; gap:0.75rem; margin-top:1.5rem; max-width:320px;">
+                <p style="color:var(--text-dim); font-size:0.78rem; margin-top:.4rem; word-break:break-all;" id="join-url"></p>
+                <div style="display:flex; gap:.75rem; margin-top:1.5rem; max-width:300px; width:100%;">
                     <button id="btn-start-game" class="btn-primary" style="flex:1;" disabled>🚀 Iniciar Juego</button>
                 </div>
-                <div style="margin-top:0.75rem; max-width:320px;">
-                    <a href="admin.html" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:0.4rem; padding:0.6rem 1.2rem; border-radius:10px; font-weight:800; font-size:0.88rem; width:100%;">⚙️ Gestionar Preguntas</a>
+                <div style="margin-top:.75rem; max-width:300px; width:100%;">
+                    <a href="admin.html" class="btn-secondary"
+                       style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.2rem;border-radius:10px;font-weight:800;font-size:.88rem;width:100%;">
+                       ⚙️ Gestionar Preguntas
+                    </a>
                 </div>
             </div>
+
             <div class="lobby-right">
-                <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:16px; padding:1.2rem; backdrop-filter:blur(12px);">
-                    <h3 style="font-size:1rem; font-weight:900; margin-bottom:0.25rem;">Equipos en sala</h3>
-                    <p style="font-size:0.8rem; color:var(--text-dim); margin-bottom:1rem;">
-                        <span id="lobby-count">0</span> jugadores conectados
-                    </p>
-                    <div id="lobby-team-list" style="display:flex; flex-direction:column; gap:0.6rem; max-height:420px; overflow-y:auto;"></div>
+                <div class="lobby-card">
+                    <div class="lobby-card-hdr">
+                        <span>🐾 Animales en sala</span>
+                        <span class="lobby-badge" id="lobby-count">0</span>
+                    </div>
+                    <div id="lobby-player-list" class="lobby-player-list"></div>
                 </div>
             </div>
+
         </div>
     </div>
 
-    <!-- ===== PANTALLA HOST: JUEGO ===== -->
+    <!-- ===== JUEGO ===== -->
     <div id="host-game" class="host-screen">
         <div class="host-game-layout">
 
-            <!-- Tablero snake -->
+            <!-- Tablero -->
             <div class="host-board-wrap">
                 <div class="board-header">
-                    <span style="font-size:1.4rem;">🎲</span>
-                    <h2 style="font-size:1rem; font-weight:900;">Tablero — Meta: casilla 30</h2>
-                    <div id="room-mini" style="font-size:0.75rem; color:var(--text-dim); margin-left:auto;"></div>
+                    <span style="font-size:1.5rem;">🌵</span>
+                    <h2 style="font-size:1rem; font-weight:900;">Camino al Oasis — Meta: casilla 30 🏝️</h2>
+                    <span id="room-mini" style="font-size:.75rem; color:var(--text-dim); margin-left:auto;"></span>
                 </div>
                 <div class="start-zone">
-                    <span style="font-size:0.72rem; color:var(--text-dim); font-weight:700; white-space:nowrap;">🏁 Inicio:</span>
-                    <div id="start-tokens" style="display:flex; gap:0.4rem; flex-wrap:wrap;"></div>
+                    <span style="font-size:.75rem; color:var(--text-dim); font-weight:700; white-space:nowrap;">🏁 Inicio:</span>
+                    <div id="start-tokens" style="display:flex; gap:.35rem; flex-wrap:wrap;"></div>
                 </div>
                 <div id="game-board" class="game-board"></div>
             </div>
 
             <!-- Panel lateral -->
             <div class="host-side-panel">
-                <!-- QR pequeño -->
                 <div class="host-qr-small">
                     <div id="qr-small"></div>
                     <div class="host-room-code-small" id="side-room-code">------</div>
-                    <div style="font-size:0.7rem; color:#555; font-weight:700;">Escanea para unirte</div>
+                    <div style="font-size:.7rem; color:#666; font-weight:700;">Escanea para unirte</div>
                 </div>
 
-                <!-- Turno actual -->
                 <div id="current-team-display"
-                     style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:0.75rem;display:flex;align-items:center;gap:0.75rem;"></div>
+                     style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:.75rem;display:flex;align-items:center;gap:.75rem;"></div>
 
-                <!-- Controles del host -->
                 <div id="panel-controls"
-                     style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:0.8rem;"></div>
+                     style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:.8rem;"></div>
 
-                <!-- Clasificación -->
-                <div style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:0.8rem;flex:1;overflow-y:auto;">
-                    <div style="font-size:0.8rem;font-weight:900;margin-bottom:0.6rem;color:var(--text-dim);">🏆 Clasificación</div>
+                <div style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;padding:.8rem;flex:1;overflow-y:auto;">
+                    <div style="font-size:.8rem;font-weight:900;margin-bottom:.6rem;color:var(--text-dim);">🏆 Clasificación</div>
                     <div id="panel-standings"></div>
                 </div>
             </div>
+
         </div>
     </div>
 
